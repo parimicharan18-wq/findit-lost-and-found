@@ -22,7 +22,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@4bfa242aa49c5f7c6770b98670d354a7dfac05f8
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           languages: javascript-typescript
       - name: Analyze source
