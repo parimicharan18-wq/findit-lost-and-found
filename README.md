@@ -1,48 +1,63 @@
-# FindIt prototype
+# FindIt — Lost and Found
 
-FindIt is currently a static front-end prototype. It has no application server, database, account system, or shared public listings.
+FindIt is a static lost-and-found website prototype. It helps visitors search sample reports, create a local lost or found report, open item details, share a public-detail link, and generate a QR code for a found-item report.
+
+**Live site:** https://parimicharan18-wq.github.io/findit-lost-and-found/
+
+## What works today
+
+- Search and filter sample and locally created reports.
+- Save and delete reports in the current browser profile.
+- Add a JPEG, PNG, or WebP photo; the browser validates, resizes, and compresses it before local storage.
+- Open a report from its hash link and generate, download, or print a QR code for found reports.
+- Share listing details without including the email address or photo in the share payload.
+- Use the camera scanner where the browser supports `BarcodeDetector` and grants camera access.
+- Get explainable rule-based candidate matches for lost reports.
+
+## Important: static demo limits
+
+There is no application server, database, account system, authentication, shared listing feed, server-side ownership verification, secure contact relay, moderation, or notifications. A report and its email/photo are stored only in the browser profile that created it. A shared link carries the item's public fields, but it does not publish that report into another user's search results. The contact action opens a mail application with a draft; FindIt does not send the message.
+
+Do not enter sensitive information or exact private addresses. QR/share links expose the item's public report details to anyone who has the URL. The app cannot enforce account-level access controls or deletion across devices. For a real multi-user service, a backend and a privacy/security design are required; those features are not simulated here.
 
 ## Run locally
 
-From this folder, run:
+Install Node.js 20 or later, then:
 
 ```powershell
-python -m http.server 8001 --bind 127.0.0.1
+npm ci
+npm run check
+npm run build
+npm test
 ```
 
-Then open `http://127.0.0.1:8001` in a browser. Port `8000` was unavailable in this environment. The supplied project does not configure port `5000`.
+The Playwright test command requires Chromium. Install it once with:
 
-## Current prototype features
+```powershell
+npx playwright install chromium
+```
 
-- Browse sample lost and found reports; samples are labelled in the interface.
-- Search reports and filter by report type and category.
-- Create a lost or found report and save it in the current browser's local storage.
-- See rule-based, explainable candidate matches between lost and found reports.
-- Open a report from its URL hash, and generate a QR code for found reports when the QR library CDN is reachable.
-- Copy a report link, download the QR as PNG, or print the QR view.
-- Switch between light and dark themes; the preference is stored in this browser.
-- Existing reports from the earlier Foundly prototype are migrated from its local storage key when available.
-- Failed local-storage writes are reported, and the app does not pretend an unsaved report was saved.
+For a live local preview of the production build:
 
-## Important limitations
+```powershell
+node scripts/serve.mjs dist
+```
 
-Local storage is specific to one browser profile and device. It does not publish reports to other people, provide authentication or authorization, or back up data. Do not enter sensitive personal information. Contact requests use the device's email application and are not mediated by a server. QR links to this local prototype are not public links and will not resolve for other users unless the app is deployed with a shared backend and a public domain.
+Open `http://127.0.0.1:4173`. The preview binds only to loopback and does not touch other local server processes.
 
-The QR generator and web fonts are loaded from external CDNs, so those features may not load offline. The app has no backend or database.
+## GitHub automation and publishing
 
-## Free public publishing with GitHub Pages
+- Pull requests and pushes to `main` and `codex/**` run JavaScript syntax checks, `npm audit`, a production build, and Playwright browser journeys.
+- The `main` branch is published to GitHub Pages only after the quality job passes. A manual run from `main` also deploys only after tests pass, then checks the published page and its local assets.
+- `Security checks` runs CodeQL and Gitleaks on pull requests, pushes, and weekly. CodeQL results are not uploaded to the repository Security tab, so the workflow keeps its token read-only. Dependabot checks the npm development dependency and GitHub Actions pins weekly.
+- Workflows use read-only repository access except the Pages deployment job, which receives the Pages write and OIDC permissions it needs.
 
-The workflow in `.github/workflows/deploy-pages.yml` publishes this static site whenever changes are pushed to `main`, and can also be started manually from the repository's Actions tab.
+To roll back a published change, revert its commit on `main` and push the revert. The test workflow runs again before Pages deploys it. This restores source files, not any data kept in visitors' local browsers.
 
-1. Create an empty **public** GitHub repository. GitHub Pages is available for public repositories on GitHub Free.
-2. Add this project to the repository and push the first commit to `main`.
-3. In the repository, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**.
-4. The workflow will deploy the site. Later pushes to `main` automatically publish the latest version.
+## Privacy and security
 
-The source code remains editable in the repository. Automatic deployment publishes changes after they are pushed; it does not independently create or edit app features. A public repository means the source files are visible to everyone.
+See [SECURITY.md](SECURITY.md) for current threat boundaries and reporting guidance, and [FREE_TIER_POLICY.md](FREE_TIER_POLICY.md) for services, costs, and quotas. The application has no runtime API keys or third-party requests. The QRCode.js source is vendored under `vendor/qrcodejs/` with its upstream MIT notice. Existing photo asset provenance has not been established in the repository and should be confirmed by the project owner before commercial redistribution.
 
-## Free AI and data limits
+## Licence
 
-The current match suggestions use transparent, rule-based text and category matching in the browser. They require no AI service or API key, but they are not generative AI. A hosted generative AI feature needs an external service and may have usage limits or costs; this app does not include one.
-
-GitHub Pages only hosts the static front end. New reports and saved items remain in each visitor's browser, so separate visitors do not share a common live item list. The share link can carry one report's public details, but it does not synchronize reports or contact information across devices.
+The repository has no project-level licence. No licence has been added, so the source is not granted an open-source licence by this change. The vendored QRCode.js file retains its own upstream MIT licence notice.

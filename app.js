@@ -2,6 +2,8 @@
   const STORAGE_KEY = 'findit-reports-v2';
   const THEME_KEY = 'findit-theme-v1';
   const SAVED_KEY = 'findit-saved-items-v1';
+  const MAX_PHOTO_DATA_LENGTH = 2_800_000;
+  const categories = new Set(['Electronics','Mobile Phones','Laptops and Tablets','Bags and Backpacks','Wallets and Purses','Keys','ID Cards and Documents','Books and Stationery','Watches and Jewelry','Clothing','Accessories','Water Bottles','Other']);
   const daysAgo = days => {
     const date = new Date();
     date.setDate(date.getDate() - days);
@@ -30,6 +32,23 @@
     return Number.isNaN(date.getTime()) ? 'Date not shared' : new Intl.DateTimeFormat('en', {month:'short', day:'numeric'}).format(date);
   };
   const newId = () => `findit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+  const cleanText = (value, maxLength) => typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
+  function normalizeStoredItem(item) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const id = cleanText(item.id, 80);
+    const name = cleanText(item.name, 60);
+    const location = cleanText(item.location, 80);
+    if (!id || !name || !location || !['Found','Lost'].includes(item.type)) return null;
+    const photoData = typeof item.photoData === 'string' && item.photoData.length <= MAX_PHOTO_DATA_LENGTH && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/i.test(item.photoData) ? item.photoData : '';
+    const date = cleanText(item.date, 10);
+    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(`${date}T12:00:00`)) ? date : '';
+    return {
+      id, type:item.type, name, category:categories.has(item.category) ? item.category : 'Other',
+      location, date:validDate, color:cleanText(item.color, 60), description:cleanText(item.description, 500),
+      email:cleanText(item.email, 100), emoji:cleanText(item.emoji, 8) || '📦',
+      demo:item.demo === true, sharedLink:item.sharedLink === true, photoData
+    };
+  }
   let items = readItems();
   let savedIds = readSavedItems();
   let activeCategory = 'All';
@@ -96,17 +115,18 @@
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (Array.isArray(saved)) {
-        const current = saved.map(item => {
-        if (!item?.demo) return item;
-        const sampleIndex = Number(item.id?.match(/(\d+)$/)?.[1]) || 1;
-        return {...item,date:daysAgo(Math.max(1, sampleIndex - 1000))};
+        const current = saved.map(normalizeStoredItem).filter(Boolean).map(item => {
+          if (!item.demo) return item;
+          const sampleIndex = Number(item.id.match(/(\d+)$/)?.[1]) || 1;
+          return {...item,date:daysAgo(Math.max(1, sampleIndex - 1000))};
         });
-        const existingIds = new Set(current.map(item => item.id));
-        return [...current,...starterItems.filter(item => !existingIds.has(item.id))];
+        const unique = [...new Map(current.map(item => [item.id, item])).values()];
+        const existingIds = new Set(unique.map(item => item.id));
+        return [...unique,...starterItems.filter(item => !existingIds.has(item.id))];
       }
       const legacy = JSON.parse(localStorage.getItem('foundly-items-v1'));
       if (Array.isArray(legacy)) {
-        const migrated = legacy.map(item => ({...item,type:'Found',category:({'Everyday':'Other','Tech':'Electronics','Bags':'Bags and Backpacks'}[item.category] || item.category)}));
+        const migrated = legacy.map(item => normalizeStoredItem({...item,type:'Found',category:({'Everyday':'Other','Tech':'Electronics','Bags':'Bags and Backpacks'}[item?.category] || item?.category)})).filter(Boolean);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)); } catch {}
         return migrated;
       }
@@ -116,7 +136,7 @@
   function readSavedItems() {
     try {
       const saved = JSON.parse(localStorage.getItem(SAVED_KEY));
-      return Array.isArray(saved) ? saved.filter(id => typeof id === 'string') : [];
+      return Array.isArray(saved) ? [...new Set(saved.filter(id => typeof id === 'string' && id.length <= 80))] : [];
     } catch { return []; }
   }
   function persistSavedItems(nextIds) {
@@ -269,6 +289,7 @@
     document.querySelector('#detail-privacy').textContent = item.demo ? 'Sample data only; this listing has no real owner contact.' : item.sharedLink ? 'Shared report details are in this link. Contact details and photos stay private.' : 'Copy link shares the public report details only. Contact details and photos stay private.';
     document.querySelector('#contact-finder').classList.toggle('hidden', item.demo || item.sharedLink || !item.email);
     document.querySelector('#contact-finder').innerHTML = `${isFound ? 'Contact the finder' : 'Contact the owner'} <span>↗</span>`;
+    document.querySelector('#delete-report').classList.toggle('hidden', item.demo || item.sharedLink || !items.some(entry => entry.id === item.id));
     if (updateUrl) updateAddress(item.id);
     if (!detailDialog.open) detailDialog.showModal();
   }
@@ -371,7 +392,7 @@
     photoPreview.innerHTML = '';
     photoPreview.classList.add('hidden');
     if (!file) return;
-    if (!file.type.startsWith('image/')) { document.querySelector('#report-status').textContent = 'Choose an image file for the item photo.'; photoInput.value = ''; return; }
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { document.querySelector('#report-status').textContent = 'Choose a JPEG, PNG, or WebP image for the item photo.'; photoInput.value = ''; return; }
     if (file.size > 8 * 1024 * 1024) { document.querySelector('#report-status').textContent = 'Choose a photo smaller than 8 MB.'; photoInput.value = ''; return; }
     const reader = new FileReader();
     reader.onerror = () => { document.querySelector('#report-status').textContent = 'This photo could not be opened. Try another image.'; };
@@ -379,14 +400,29 @@
       const image = new Image();
       image.onerror = () => { document.querySelector('#report-status').textContent = 'This photo could not be opened. Try another image.'; };
       image.onload = () => {
+        if (image.naturalWidth > 12000 || image.naturalHeight > 12000 || image.naturalWidth * image.naturalHeight > 40_000_000) {
+          document.querySelector('#report-status').textContent = 'This image is too large to process safely. Choose one under 40 megapixels.';
+          photoInput.value = '';
+          return;
+        }
         const scale = Math.min(1, 1000 / Math.max(image.naturalWidth, image.naturalHeight));
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
         const context = canvas.getContext('2d');
+        if (!context) { document.querySelector('#report-status').textContent = 'This photo could not be prepared. Try another image.'; photoInput.value = ''; return; }
         context.fillStyle = '#ffffff'; context.fillRect(0,0,canvas.width,canvas.height);
         context.drawImage(image,0,0,canvas.width,canvas.height);
-        selectedPhotoData = canvas.toDataURL('image/jpeg',0.76);
+        selectedPhotoData = canvas.toDataURL('image/jpeg',0.72);
+        if (selectedPhotoData.length > MAX_PHOTO_DATA_LENGTH) {
+          selectedPhotoData = canvas.toDataURL('image/jpeg',0.5);
+          if (selectedPhotoData.length > MAX_PHOTO_DATA_LENGTH) {
+            selectedPhotoData = '';
+            document.querySelector('#report-status').textContent = 'This photo is still too large after compression. Choose a smaller photo.';
+            photoInput.value = '';
+            return;
+          }
+        }
         photoPreview.innerHTML = `<img src="${selectedPhotoData}" alt="Preview of your item photo"><button type="button" class="remove-photo" aria-label="Remove photo">Remove photo</button>`;
         photoPreview.classList.remove('hidden');
       };
@@ -513,6 +549,19 @@
     const body = encodeURIComponent(item.type === 'Found' ? `Hi! I think I can identify your found item, “${item.name}”. Could we arrange a safe handoff?` : `Hi! I saw your lost item report for “${item.name}”. I may have information that can help.`);
     window.location.href = `mailto:${encodeURIComponent(item.email)}?subject=${subject}&body=${body}`;
   });
+  document.querySelector('#delete-report').addEventListener('click', () => {
+    if (!currentDetailItem || currentDetailItem.demo || currentDetailItem.sharedLink) return;
+    const item = items.find(entry => entry.id === currentDetailItem.id);
+    if (!item || !window.confirm('Delete this report from this browser? This cannot be undone.')) return;
+    const nextItems = items.filter(entry => entry.id !== item.id);
+    if (!saveItems(nextItems)) { document.querySelector('#detail-status').textContent = 'Could not delete this report because browser storage is unavailable.'; return; }
+    items = nextItems;
+    savedIds = savedIds.filter(id => id !== item.id);
+    persistSavedItems(savedIds);
+    closeDialog(detailDialog);
+    render();
+    showToast('Report deleted from this browser.');
+  });
   document.addEventListener('keydown', event => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); search.focus(); }
   });
@@ -558,7 +607,7 @@
   const initialItem = getHashShareItem() || getHashItemId();
   if (initialItem) openDetail(initialItem, false);
   const qrScript = document.createElement('script');
-  qrScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  qrScript.src = 'vendor/qrcodejs/qrcode.min.js';
   qrScript.async = true;
   qrScript.onload = () => { const item = getHashShareItem() || getHashItemId(); if (detailDialog.open && item) openDetail(item, false); };
   qrScript.onerror = () => { document.querySelector('#qr-code').textContent = 'QR unavailable offline'; };
