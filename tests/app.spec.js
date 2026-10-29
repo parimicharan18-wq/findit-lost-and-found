@@ -42,9 +42,9 @@ test('shared report details exclude private email and photo data', async ({ page
   await page.getByRole('button', { name: 'Save lost report' }).click();
   await expect(page.locator('#detail-dialog')).toBeVisible();
   await page.locator('#copy-link').click();
-  const shareUrl = await page.evaluate(() => navigator.clipboard.readText());
-  const token = new URL(shareUrl).hash.slice('#share='.length).replace(/-/g, '+').replace(/_/g, '/');
-  const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+  const shareUrl = await page.evaluate(async () => { while (!document.querySelector('#detail-status').textContent.includes('Shareable listing link copied.')) await new Promise(resolve => setTimeout(resolve, 25)); return navigator.clipboard.readText(); });
+  const token = new URL(shareUrl).hash.slice('#share='.length);
+  const payload = JSON.parse(Buffer.from(token, 'base64url').toString('utf8'));
   expect(payload.name).toBe('Private detail check');
   expect(payload.email).toBeUndefined();
   expect(payload.photoData).toBeUndefined();
