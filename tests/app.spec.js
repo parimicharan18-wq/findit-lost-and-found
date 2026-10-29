@@ -1,6 +1,13 @@
 const { test, expect } = require('@playwright/test');
 
+async function useLocalReports(page) {
+  await page.addInitScript(() => {
+    window.FINDIT_CONFIG = Object.freeze({supabaseUrl:'',supabasePublishableKey:''});
+  });
+}
+
 test('search and report filters work with the sample listings', async ({ page }) => {
+  await useLocalReports(page);
   await page.goto('/');
   await expect(page.locator('.item-card')).toHaveCount(13);
   await page.getByRole('searchbox', { name: 'Search reports' }).fill('brass keys');
@@ -12,6 +19,7 @@ test('search and report filters work with the sample listings', async ({ page })
 });
 
 test('found report persists and produces a locally generated QR code', async ({ page }) => {
+  await useLocalReports(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'I found an item' }).first().click();
   await page.locator('#item-name').fill('Test keys');
@@ -33,7 +41,16 @@ test('found report persists and produces a locally generated QR code', async ({ 
 });
 
 test('shared report details exclude private email and photo data', async ({ page, context }) => {
+  await useLocalReports(page);
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.addInitScript(() => {
+    let copiedText = '';
+    Object.defineProperty(navigator, 'clipboard', {configurable:true,value:{
+      writeText:async text => { copiedText = text; },
+      readText:async () => copiedText
+    }});
+    window.__finditCopiedText = () => copiedText;
+  });
   await page.goto('/');
   await page.getByRole('button', { name: 'I lost an item' }).first().click();
   await page.locator('#item-name').fill('Private detail check');
@@ -42,9 +59,10 @@ test('shared report details exclude private email and photo data', async ({ page
   await page.getByRole('button', { name: 'Save lost report' }).click();
   await expect(page.locator('#detail-dialog')).toBeVisible();
   await page.locator('#copy-link').click();
-  const shareUrl = await page.evaluate(() => navigator.clipboard.readText());
-  const token = new URL(shareUrl).hash.slice('#share='.length).replace(/-/g, '+').replace(/_/g, '/');
-  const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+  await expect(page.locator('#detail-status')).toContainText('Shareable listing link copied.');
+  const shareUrl = await page.evaluate(() => window.__finditCopiedText());
+  const token = new URL(shareUrl).hash.slice('#share='.length);
+  const payload = JSON.parse(Buffer.from(token, 'base64url').toString('utf8'));
   expect(payload.name).toBe('Private detail check');
   expect(payload.email).toBeUndefined();
   expect(payload.photoData).toBeUndefined();
@@ -55,6 +73,7 @@ test('shared report details exclude private email and photo data', async ({ page
 });
 
 test('malformed saved records are ignored and stored markup is rendered as text', async ({ page }) => {
+  await useLocalReports(page);
   await page.addInitScript(() => {
     localStorage.setItem('findit-reports-v2', JSON.stringify([
       null,
@@ -74,6 +93,7 @@ test('malformed saved records are ignored and stored markup is rendered as text'
 });
 
 test('a user can delete only their local report', async ({ page }) => {
+  await useLocalReports(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'I lost an item' }).first().click();
   await page.locator('#item-name').fill('Delete me');
@@ -89,6 +109,7 @@ test('a user can delete only their local report', async ({ page }) => {
 });
 
 test('QR scanner requests no camera access until the visitor starts it', async ({ page }) => {
+  await useLocalReports(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Scan QR' }).click();
   await expect(page.locator('#scanner-dialog')).toBeVisible();
@@ -98,6 +119,7 @@ test('QR scanner requests no camera access until the visitor starts it', async (
 });
 
 test('QR scanning opens a shared report in a fresh local context', async ({ page }) => {
+  await useLocalReports(page);
   const report = { id:'scan-test', type:'Found', name:'Scanned report', category:'Keys', location:'Test library', date:'2026-01-15', color:'Brass', description:'Test listing', emoji:'🔑' };
   const token = Buffer.from(JSON.stringify(report)).toString('base64url');
   await page.addInitScript(({ token: shareToken }) => {
