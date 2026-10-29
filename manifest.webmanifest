@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "FindIt — Lost & Found",
+  "short_name": "FindIt",
+  "description": "Report lost and found items, search listings, and share item QR codes.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f5f5f7",
+  "theme_color": "#f5f5f7",
+  "icons": [
+    { "src": "/assets/findit-app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["lifestyle", "utilities"]
+}

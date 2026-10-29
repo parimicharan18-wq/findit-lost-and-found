@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f5f7">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/findit-app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/findit-app-icon.svg">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; media-src 'self' blob:; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="description" content="FindIt helps people report lost belongings and return found items with QR-powered listings.">
@@ -15,7 +18,7 @@
     <header class="topbar">
       <a class="brand" href="#home" aria-label="FindIt home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M8 5h17v5H13v4h10v5H13v8H8z"></path></svg></span><span class="brand-copy"><strong>Find<span>It</span></strong><small>LOST &amp; FOUND</small></span></a>
       <nav class="nav-links" aria-label="Main navigation"><a class="active" href="#items">Explore items</a><a href="#how-it-works">How it works</a><a href="#user-guide">User guide</a></nav>
-      <div class="top-actions"><button class="theme-toggle" id="theme-toggle" aria-label="Switch to dark theme" title="Switch theme">☾</button><button class="button button-dark nav-cta" data-open-report><span class="cta-plus" aria-hidden="true">＋</span><span>Report an item</span></button></div>
+      <div class="top-actions"><button class="button button-outline install-app hidden" id="install-app" type="button"><span aria-hidden="true">↓</span><span>Install app</span></button><button class="theme-toggle" id="theme-toggle" aria-label="Switch to dark theme" title="Switch theme">☾</button><button class="button button-dark nav-cta" data-open-report><span class="cta-plus" aria-hidden="true">＋</span><span>Report an item</span></button></div>
     </header>
 
     <main id="home">
@@ -72,5 +75,6 @@
   <script src="shared-config.js?v=1"></script>
   <script src="shared-backend.js?v=1"></script>
   <script src="app.js?v=10"></script>
+  <script src="pwa.js?v=1" defer></script>
 </body>
 </html>

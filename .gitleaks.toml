@@ -1,0 +1,9 @@
+title = "FindIt Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allow Supabase browser-safe publishable keys"
+regexTarget = "secret"
+regexes = ['''sb_publishable_[A-Za-z0-9_-]{20,}''']

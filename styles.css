@@ -447,6 +447,9 @@ body{background:radial-gradient(ellipse at 80% 3%,rgba(91,153,255,.13),transpare
 .theme-toggle{width:40px;height:40px;background:rgba(255,255,255,.68);border-color:rgba(29,29,31,.1);box-shadow:0 3px 12px rgba(29,48,80,.05)}
 .nav-cta{height:42px;min-height:42px;padding-inline:17px;border-radius:13px;background:linear-gradient(135deg,#2985f5,#0869df);box-shadow:0 7px 17px rgba(0,113,227,.2);font-size:11px}
 .nav-cta:hover{background:linear-gradient(135deg,#1979ef,#005fcf);box-shadow:0 10px 23px rgba(0,113,227,.25)}
+.install-app{height:38px;min-height:38px;padding-inline:12px;border-radius:12px;font-size:10px}
+.install-app[hidden],.install-app.hidden{display:none}
+@media(max-width:430px){.install-app{padding-inline:9px;gap:4px;font-size:9px}}
 :root[data-theme="dark"] .topbar{background:rgba(15,19,28,.76);border-color:rgba(255,255,255,.09);box-shadow:0 8px 28px rgba(0,0,0,.16)}
 :root[data-theme="dark"] .brand-copy strong{color:#f5f7fb}
 :root[data-theme="dark"] .brand-copy small{color:#9da8ba}
@@ -878,3 +881,19 @@ main>section,.footer{transform-style:preserve-3d}
 .visual-glow{filter:none!important}
 /* Shared-board inbox */
 .inbox-list{display:grid;gap:10px;max-height:min(52vh,520px);overflow:auto;margin:14px 0}.inbox-message{padding:15px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--paper) 82%,var(--ink) 18%)}.inbox-message-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.inbox-message-head strong{font-size:13px}.inbox-message-head time{font-size:10px;color:var(--muted)}.inbox-message p{margin:10px 0;color:var(--ink);font-size:13px;line-height:1.55;overflow-wrap:anywhere}.inbox-message .text-link{color:var(--ink);text-decoration:underline;text-underline-offset:3px}.inbox-empty{padding:14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:12px;line-height:1.6}.filter-row #inbox-button{border-style:solid}.filter-row #refresh-reports{white-space:nowrap}
+
+/* Prevent repaint jank while scrolling the long page. */
+html{scroll-behavior:auto;scroll-padding-top:72px}
+.site-shell{overflow-x:clip;overflow-y:visible;perspective:none;transform:none}
+body{animation:none!important;background-attachment:scroll}
+.topbar{backdrop-filter:none;-webkit-backdrop-filter:none}
+.hero,.hero::before,.topbar,.ticker,.listings,.how-section,.manual-section,.closing-cta,.footer,
+.finder-card,.qr-float-card,.item-card,.steps article,.manual-grid article,.modal,.search-box,
+.form-control,.empty-state,.visual-glow,.visual-orbit,.tiny-star,.item-orbit,.backpack-art,
+.qr-illustration,.ticker b{animation:none!important;rotate:none!important;translate:none!important}
+.hero:hover,.topbar:hover,.ticker:hover,.listings:hover,.how-section:hover,.manual-section:hover,
+.closing-cta:hover,.footer:hover,.item-card:hover,.steps article:hover,.manual-grid article:hover{
+  transform:none!important;rotate:none!important;translate:none!important
+}
+body::before{content:none!important}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation:none!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
