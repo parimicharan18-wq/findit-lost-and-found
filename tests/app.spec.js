@@ -115,3 +115,136 @@ test('QR scanning opens a shared report in a fresh local context', async ({ page
   await expect(page.locator('#detail-dialog')).toBeVisible();
   await expect(page.locator('#contact-finder')).toBeHidden();
 });
+
+test('configured community reports appear across browsers and keep reporter email private', async ({ page }) => {
+  await page.addInitScript(() => { window.FINDIT_CONFIG = {supabaseUrl:'https://findit-test.supabase.co',supabasePublishableKey:'sb_publishable_test'}; });
+  await page.route('https://findit-test.supabase.co/rest/v1/findit_reports?**', route => route.fulfill({
+    contentType:'application/json', body:JSON.stringify([{
+      id:'shared-report-01',type:'Found',name:'Community keys',category:'Keys',location:'North library',date:'2026-10-28',color:'Brass loop',description:'Small key set',emoji:'🔑',photo_path:null,created_at:'2026-10-28T12:00:00Z'
+    }])
+  }));
+  await page.goto('/');
+  await expect(page.locator('.item-title').filter({hasText:'Community keys'})).toBeVisible();
+  await expect(page.locator('#hero-count-label')).toHaveText('community reports');
+  await page.getByRole('button',{name:'View Community keys'}).click();
+  await expect(page.locator('#detail-privacy')).toContainText('Reporter email stays private');
+  await expect(page.locator('#contact-finder')).toHaveText(/Message the reporter/);
+});
+
+test('a secret Supabase service key cannot enable the browser backend', async ({ page }) => {
+  await page.addInitScript(() => { window.FINDIT_CONFIG = {supabaseUrl:'https://findit-test.supabase.co',supabasePublishableKey:'sb_secret_do_not_use_in_browser'}; });
+  await page.goto('/');
+  await expect(page.locator('#shared-mode-badge')).toHaveText('SAMPLE REPORTS INCLUDED');
+  await expect(page.getByRole('button',{name:/My inbox/})).toBeHidden();
+});
+
+test('a committed report can be recovered after its first response is lost', async ({ page }) => {
+  let createCalls = 0;
+  await page.addInitScript(() => { window.FINDIT_CONFIG = {supabaseUrl:'https://findit-test.supabase.co',supabasePublishableKey:'sb_publishable_test'}; });
+  await page.route('https://findit-test.supabase.co/rest/v1/findit_reports?**', route => route.fulfill({contentType:'application/json',body:'[]'}));
+  await page.route('https://findit-test.supabase.co/rest/v1/rpc/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    const body = route.request().postDataJSON();
+    if (path.endsWith('/findit_create_report')) {
+      createCalls += 1;
+      if (createCalls === 1) return route.fulfill({status:503,contentType:'application/json',body:'{"message":"connection interrupted"}'});
+      return route.fulfill({contentType:'application/json',body:JSON.stringify({id:body.p_report.id})});
+    }
+    if (path.endsWith('/findit_list_messages')) return route.fulfill({contentType:'application/json',body:'[]'});
+    return route.fulfill({contentType:'application/json',body:'true'});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'I found an item'}).first().click();
+  await page.locator('#item-name').fill('Recovered shared report');
+  await page.locator('#item-location').fill('Main library');
+  await page.locator('#item-contact').fill('owner@example.test');
+  await page.getByRole('button',{name:'Save found report'}).click();
+  await expect(page.locator('#detail-name')).toHaveText('Recovered shared report');
+  await expect(page.locator('#detail-status')).toContainText('Your report is shared');
+  expect(createCalls).toBe(2);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('findit-reports-v2')).find(item => item.name === 'Recovered shared report'));
+  expect(stored.remote).toBe(true);
+  expect(stored.ownerToken).toMatch(/^[a-f0-9]{64}$/);
+});
+
+test('shared report creation sends public fields and a private owner token, never the reporter email', async ({ page }) => {
+  let submitted;
+  await page.addInitScript(() => { window.FINDIT_CONFIG = {supabaseUrl:'https://findit-test.supabase.co',supabasePublishableKey:'sb_publishable_test'}; });
+  await page.route('https://findit-test.supabase.co/rest/v1/findit_reports?**', route => route.fulfill({contentType:'application/json',body:'[]'}));
+  await page.route('https://findit-test.supabase.co/rest/v1/rpc/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    const body = route.request().postDataJSON();
+    if (path.endsWith('/findit_create_report')) { submitted = body; return route.fulfill({contentType:'application/json',body:JSON.stringify({id:body.p_report.id})}); }
+    if (path.endsWith('/findit_list_messages')) return route.fulfill({contentType:'application/json',body:'[]'});
+    return route.fulfill({contentType:'application/json',body:'true'});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'I found an item'}).first().click();
+  await page.locator('#item-name').fill('Shared test umbrella');
+  await page.locator('#item-location').fill('City library');
+  await page.locator('#item-contact').fill('private-owner@example.test');
+  await page.getByRole('button',{name:'Save found report'}).click();
+  await expect(page.locator('#detail-name')).toHaveText('Shared test umbrella');
+  expect(submitted.p_report.name).toBe('Shared test umbrella');
+  expect(submitted.p_report.email).toBeUndefined();
+  expect(submitted.p_owner_token).toMatch(/^[a-f0-9]{64}$/);
+  expect(JSON.stringify(submitted)).not.toContain('private-owner@example.test');
+  await expect(page.locator('#detail-privacy')).toContainText('Your email stays in this browser');
+});
+
+test('a shared listing accepts a private message and the matching owner token opens the inbox', async ({ page }) => {
+  const ownerToken = 'a'.repeat(64);
+  const reportId = 'findit-owner-12345';
+  await page.addInitScript(({token,id}) => {
+    window.FINDIT_CONFIG = {supabaseUrl:'https://findit-test.supabase.co',supabasePublishableKey:'sb_publishable_test'};
+    localStorage.setItem('findit-reports-v2',JSON.stringify([{id,type:'Found',name:'Owner listing',category:'Keys',location:'Campus',date:'2026-10-28',color:'',description:'',emoji:'🔑',email:'not-in-backend@example.test',remote:true,ownerToken:token}]));
+  },{token:ownerToken,id:reportId});
+  let messageCalls = 0;
+  await page.route('https://findit-test.supabase.co/rest/v1/findit_reports?**', route => route.fulfill({
+    contentType:'application/json',body:JSON.stringify([{id:reportId,type:'Found',name:'Owner listing',category:'Keys',location:'Campus',date:'2026-10-28',color:'',description:'',emoji:'🔑',photo_path:null,created_at:'2026-10-28T12:00:00Z'}])
+  }));
+  await page.route('https://findit-test.supabase.co/rest/v1/rpc/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    const body = route.request().postDataJSON();
+    if (path.endsWith('/findit_list_messages')) {
+      messageCalls += 1;
+      expect(body.p_owner_tokens[reportId]).toBe(ownerToken);
+      return route.fulfill({contentType:'application/json',body:JSON.stringify([{message_id:'msg-1',report_id:reportId,report_name:'Owner listing',sender_email:'helper@example.test',message:'I found the blue key tag.',created_at:'2026-10-29T12:00:00Z'}])});
+    }
+    return route.fulfill({contentType:'application/json',body:'true'});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:/My inbox/}).click();
+  await expect(page.locator('#inbox-list')).toContainText('I found the blue key tag.');
+  await expect(page.locator('#inbox-list')).toContainText('helper@example.test');
+  await expect(page.locator('#inbox-count')).toHaveText('1');
+  expect(messageCalls).toBeGreaterThan(0);
+});
+
+test('message senders can contact a shared report without seeing the reporter email', async ({ page }) => {
+  const reportId = 'shared-contact-1234';
+  let sentMessage;
+  await page.addInitScript(() => { window.FINDIT_CONFIG = {supabaseUrl:'https://findit-test.supabase.co',supabasePublishableKey:'sb_publishable_test'}; });
+  await page.route('https://findit-test.supabase.co/rest/v1/findit_reports?**', route => route.fulfill({
+    contentType:'application/json',body:JSON.stringify([{id:reportId,type:'Lost',name:'Lost red backpack',category:'Bags and Backpacks',location:'Main hall',date:'2026-10-27',color:'Red',description:'',emoji:'🎒',photo_path:null,created_at:'2026-10-27T12:00:00Z'}])
+  }));
+  await page.route('https://findit-test.supabase.co/rest/v1/rpc/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/findit_list_messages')) return route.fulfill({contentType:'application/json',body:'[]'});
+    if (path.endsWith('/findit_send_message')) {
+      sentMessage = route.request().postDataJSON();
+      return route.fulfill({contentType:'application/json',body:'"message-id"'});
+    }
+    return route.fulfill({contentType:'application/json',body:'true'});
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'View Lost red backpack'}).click();
+  await page.getByRole('button',{name:/Message the reporter/}).click();
+  await page.locator('#message-email').fill('helper@example.test');
+  await page.locator('#message-text').fill('I may have found your item.');
+  await page.getByRole('button',{name:'Send private message'}).click();
+  await expect(page.locator('#detail-status')).toContainText('private inbox');
+  expect(sentMessage.p_report_id).toBe(reportId);
+  expect(sentMessage.p_sender_email).toBe('helper@example.test');
+  expect(JSON.stringify(sentMessage)).not.toContain('reporter@example.test');
+});

@@ -46,10 +46,16 @@
       id, type:item.type, name, category:categories.has(item.category) ? item.category : 'Other',
       location, date:validDate, color:cleanText(item.color, 60), description:cleanText(item.description, 500),
       email:cleanText(item.email, 100), emoji:cleanText(item.emoji, 8) || '📦',
-      demo:item.demo === true, sharedLink:item.sharedLink === true, photoData
+      demo:item.demo === true, sharedLink:item.sharedLink === true, photoData,
+      remote:item.remote === true, ownerToken:/^[a-f0-9]{64}$/i.test(item.ownerToken || '') ? item.ownerToken : '',
+      photoPath:typeof item.photoPath === 'string' && /^[a-z0-9-]{8,80}\/[a-z0-9-]{8,80}\.(?:jpg|png|webp)$/i.test(item.photoPath) ? item.photoPath : ''
     };
   }
   let items = readItems();
+  let remoteItems = [];
+  let inboxMessages = [];
+  let messageReportId = '';
+  const sharedBackend = window.FindItShared || {enabled:false};
   let savedIds = readSavedItems();
   let activeCategory = 'All';
   let activeType = 'All';
@@ -65,6 +71,8 @@
   const reportDialog = document.querySelector('#report-dialog');
   const detailDialog = document.querySelector('#detail-dialog');
   const scannerDialog = document.querySelector('#scanner-dialog');
+  const messageDialog = document.querySelector('#message-dialog');
+  const inboxDialog = document.querySelector('#inbox-dialog');
 
   function getHashItemId() {
     const match = window.location.hash.match(/^#item=(.+)$/);
@@ -107,7 +115,7 @@
   function shareUrlForItem(item) {
     const url = new URL(window.location.href);
     url.search = '';
-    url.hash = `share=${encodeShareItem(item)}`;
+    url.hash = item.remote ? `item=${encodeURIComponent(item.id)}` : `share=${encodeShareItem(item)}`;
     return url.href;
   }
 
@@ -153,7 +161,7 @@
   }
   function saveItems(nextItems) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems.filter(item => !item.remote || item.ownerToken)));
       return true;
     } catch {
       return false;
@@ -167,6 +175,7 @@
   }
   function photoForItem(item) {
     if (typeof item.photoData === 'string' && /^data:image\/(?:jpeg|png|webp);base64,/i.test(item.photoData)) return {src:item.photoData,alt:`Photo provided for ${item.name}`,example:false};
+    if (item.photoPath && sharedBackend.enabled) return {src:sharedBackend.publicAssetUrl(item.photoPath),alt:`Photo provided for ${item.name}`,example:false};
     if (!item.demo) return null;
     const name = String(item.name || '').toLocaleLowerCase();
     const category = String(item.category || '').toLocaleLowerCase();
@@ -209,6 +218,118 @@
       return matchesCategory && matchesType && (!term || haystack.includes(term));
     }).sort((a,b) => newestFirst ? (b.date || '').localeCompare(a.date || '') : (a.date || '').localeCompare(b.date || ''));
   }
+
+  function ownerTokens() {
+    const pairs = {};
+    readItems().filter(item => item.remote && item.ownerToken).forEach(item => { pairs[item.id] = item.ownerToken; });
+    return pairs;
+  }
+
+  function mergeRemoteItems() {
+    const localItems = readItems();
+    const localById = new Map(localItems.map(item => [item.id,item]));
+    const remoteIds = new Set(remoteItems.map(item => item.id));
+    items = [
+      ...remoteItems.map(item => localById.has(item.id) ? {...item,...localById.get(item.id),remote:true} : item),
+      ...localItems.filter(item => !remoteIds.has(item.id))
+    ];
+    render();
+  }
+
+  function updateSharedLabels() {
+    const shared = sharedBackend.enabled;
+    document.querySelector('#storage-description').textContent = shared
+      ? 'Search FindIt community listings, scan an item QR, or report something lost or found. Reporter email stays private; messages go to a private inbox.'
+      : 'Search found-item reports, scan a QR code to open item details, or report something you lost or found. Reports stay in this browser in this demo.';
+    document.querySelector('#listing-description').textContent = shared
+      ? 'Community reports appear here. Email stays private; replies are delivered to the report owner’s inbox in the browser where they posted.'
+      : 'Copy a report link to share its public details with another browser.';
+    document.querySelector('#hero-count-label').textContent = shared ? 'community reports' : 'reports saved on this device';
+    document.querySelector('#shared-mode-badge').textContent = shared ? 'COMMUNITY BOARD' : 'SAMPLE REPORTS INCLUDED';
+    document.querySelector('#inbox-button').classList.toggle('hidden', !shared);
+    document.querySelector('#refresh-reports').classList.toggle('hidden', !shared);
+  }
+
+  async function refreshInboxCount() {
+    if (!sharedBackend.enabled) return;
+    try {
+      inboxMessages = await sharedBackend.listMessages(ownerTokens());
+      document.querySelector('#inbox-count').textContent = String(inboxMessages.length);
+    } catch {
+      document.querySelector('#inbox-count').textContent = '…';
+    }
+  }
+
+  async function refreshSharedBoard({quiet = false, openHash = false} = {}) {
+    if (!sharedBackend.enabled) return;
+    const refreshButton = document.querySelector('#refresh-reports');
+    refreshButton.disabled = true;
+    try {
+      remoteItems = await sharedBackend.listReports();
+      mergeRemoteItems();
+      document.querySelector('#inbox-count').textContent = String(inboxMessages.length);
+      if (!quiet) showToast('Community reports are up to date.');
+      await refreshInboxCount();
+      const reportId = openHash ? getHashItemId() : null;
+      if (reportId) {
+        let report = items.find(item => item.id === reportId);
+        if (!report) {
+          report = await sharedBackend.getReport(reportId);
+          if (report) { remoteItems.unshift(report); mergeRemoteItems(); }
+        }
+        if (report) openDetail(report,false);
+      }
+      const sharedItem = getHashShareItem();
+      if (sharedItem && /^#share=/.test(window.location.hash)) openDetail(sharedItem,false);
+    } catch {
+      if (!quiet) showToast('Could not refresh community reports. Check your connection and try again.');
+    } finally {
+      refreshButton.disabled = false;
+    }
+  }
+
+  function renderInbox(messages) {
+    const list = document.querySelector('#inbox-list');
+    if (!messages.length) {
+      list.innerHTML = '<p class="inbox-empty">No messages yet. Messages about reports you posted will appear here.</p>';
+      return;
+    }
+    list.innerHTML = messages.map(message => `
+      <article class="inbox-message">
+        <div class="inbox-message-head"><strong>${escapeHTML(message.report_name || 'Your report')}</strong><time>${escapeHTML(formatDate(String(message.created_at || '').slice(0,10)))}</time></div>
+        <p>${escapeHTML(message.message)}</p>
+        <a class="text-link" href="mailto:${encodeURIComponent(message.sender_email || '')}?subject=${encodeURIComponent('FindIt reply about ' + (message.report_name || 'your report'))}">Reply to ${escapeHTML(message.sender_email || 'sender')} ↗</a>
+      </article>`).join('');
+  }
+
+  async function openInbox() {
+    inboxDialog.showModal();
+    document.querySelector('#inbox-status').textContent = 'Loading your private messages…';
+    try {
+      inboxMessages = await sharedBackend.listMessages(ownerTokens());
+      document.querySelector('#inbox-count').textContent = String(inboxMessages.length);
+      renderInbox(inboxMessages);
+      document.querySelector('#inbox-status').textContent = Object.keys(ownerTokens()).length
+        ? 'Messages are visible only in this browser. FindIt does not email notifications.'
+        : 'No reports from this browser have a private recovery key.';
+    } catch {
+      document.querySelector('#inbox-status').textContent = 'Inbox could not load. Check your connection and refresh.';
+    }
+  }
+
+  async function resolveAndOpenReport(id) {
+    const existing = items.find(item => item.id === id);
+    if (existing) { openDetail(existing,false); return; }
+    if (!sharedBackend.enabled) { showToast('This report is not available in this browser.'); return; }
+    try {
+      const report = await sharedBackend.getReport(id);
+      if (!report) { showToast('This shared report is no longer available.'); return; }
+      remoteItems = [report,...remoteItems.filter(item => item.id !== report.id)];
+      mergeRemoteItems();
+      openDetail(report,false);
+    } catch { showToast('Could not open this community report. Check your connection and try again.'); }
+  }
+
   function render() {
     const shown = filteredItems();
     grid.innerHTML = shown.map(item => `
@@ -232,9 +353,9 @@
       document.querySelector('#empty-state h3').textContent = 'No reports match that search.';
       document.querySelector('#empty-state p').textContent = 'Change the search or filters, or create a lost or found report.';
     }
-    const savedReportCount = items.filter(item => !item.demo).length;
+    const savedReportCount = sharedBackend.enabled ? remoteItems.length : items.filter(item => !item.demo).length;
     document.querySelector('#hero-count').textContent = savedReportCount.toLocaleString();
-    document.querySelector('#hero-count-label').textContent = savedReportCount === 1 ? 'report saved on this device' : 'reports saved on this device';
+    if (!sharedBackend.enabled) document.querySelector('#hero-count-label').textContent = savedReportCount === 1 ? 'report saved on this device' : 'reports saved on this device';
     const hasActiveFilters = activeType !== 'All' || activeCategory !== 'All' || Boolean(search.value.trim());
     document.querySelector('#see-all').classList.toggle('hidden', !hasActiveFilters);
   }
@@ -286,10 +407,20 @@
     if (isFound && window.QRCode) new QRCode(qrNode, {text:target.href,width:128,height:128,colorDark:'#242620',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
     else if (isFound) qrNode.textContent = 'QR library unavailable offline';
     if (!isFound) qrNode.innerHTML = '';
-    document.querySelector('#detail-privacy').textContent = item.demo ? 'Sample data only; this listing has no real owner contact.' : item.sharedLink ? 'Shared report details are in this link. Contact details and photos stay private.' : 'Copy link shares the public report details only. Contact details and photos stay private.';
-    document.querySelector('#contact-finder').classList.toggle('hidden', item.demo || item.sharedLink || !item.email);
-    document.querySelector('#contact-finder').innerHTML = `${isFound ? 'Contact the finder' : 'Contact the owner'} <span>↗</span>`;
-    document.querySelector('#delete-report').classList.toggle('hidden', item.demo || item.sharedLink || !items.some(entry => entry.id === item.id));
+    document.querySelector('#detail-privacy').textContent = item.demo
+      ? 'Sample data only; this listing has no real owner contact.'
+      : item.sharedLink
+        ? 'This link contains public item details only. Open the community listing to send a private message.'
+        : item.remote
+          ? item.ownerToken ? 'Your email stays in this browser. Messages from other visitors arrive in My inbox.' : 'Reporter email stays private. Send a message; the report owner can reply from My inbox.'
+          : 'Copy link shares public report details only. Contact details and photos stay in this browser.';
+    const canSendPrivateMessage = sharedBackend.enabled && item.remote && !item.ownerToken && !item.sharedLink;
+    const canUseLocalMail = !item.remote && !item.demo && !item.sharedLink && Boolean(item.email);
+    document.querySelector('#contact-finder').classList.toggle('hidden', !canSendPrivateMessage && !canUseLocalMail);
+    document.querySelector('#contact-finder').innerHTML = canSendPrivateMessage ? 'Message the reporter <span>↗</span>' : `${isFound ? 'Contact the finder' : 'Contact the owner'} <span>↗</span>`;
+    const canDelete = item.remote ? Boolean(item.ownerToken) : !item.demo && !item.sharedLink && items.some(entry => entry.id === item.id);
+    document.querySelector('#delete-report').classList.toggle('hidden', !canDelete);
+    document.querySelector('#delete-report').textContent = item.remote ? 'Delete this shared report' : 'Delete this report from this browser';
     if (updateUrl) updateAddress(item.id);
     if (!detailDialog.open) detailDialog.showModal();
   }
@@ -308,7 +439,7 @@
     document.querySelector('#stop-scan').classList.add('hidden');
     document.querySelector('#start-scan').classList.remove('hidden');
   }
-  function openScannedReport(rawValue) {
+  async function openScannedReport(rawValue) {
     let reportId = '';
     let sharedItem = null;
     try {
@@ -321,7 +452,13 @@
     if (!reportId && /^findit-[a-z0-9-]+$/i.test(rawValue)) reportId = rawValue;
     let decodedId = reportId;
     try { decodedId = decodeURIComponent(reportId); } catch {}
-    const item = sharedItem || items.find(entry => entry.id === decodedId);
+    let item = sharedItem || items.find(entry => entry.id === decodedId);
+    if (!item && decodedId && sharedBackend.enabled) {
+      try {
+        item = await sharedBackend.getReport(decodedId);
+        if (item) { remoteItems = [item,...remoteItems.filter(entry => entry.id !== item.id)]; mergeRemoteItems(); }
+      } catch {}
+    }
     if (!item) {
       document.querySelector('#scanner-status').textContent = reportId ? 'This QR report is not saved in this browser.' : 'That QR code is not a valid FindIt item report.';
       return;
@@ -334,7 +471,7 @@
     if (!scannerStream || !scannerDialog.open) return;
     try {
       const results = await scannerDetector.detect(document.querySelector('#scanner-video'));
-      if (results.length) { openScannedReport(results[0].rawValue); return; }
+      if (results.length) { await openScannedReport(results[0].rawValue); return; }
     } catch { /* Wait for the next camera frame. */ }
     scannerFrame = requestAnimationFrame(scanQrFrame);
   }
@@ -381,7 +518,9 @@
     document.querySelector('#photo-preview').innerHTML = '';
     document.querySelector('#photo-preview').classList.add('hidden');
     document.querySelector('#report-type').value = type ? (type === 'lost' ? 'Lost' : 'Found') : '';
-    document.querySelector('#report-status').textContent = 'Local demo: the report and email are stored in this browser only. No one else can see them; no message is sent automatically.';
+    document.querySelector('#report-status').textContent = sharedBackend.enabled
+      ? 'Your email stays in this browser. Shared reports are public; replies arrive in My inbox in the browser where you posted.'
+      : 'Local demo: the report and email are stored in this browser only. No one else can see them; no message is sent automatically.';
     updateReportCopy(); reportDialog.showModal();
   }));
   const photoInput = document.querySelector('#item-photo');
@@ -507,7 +646,7 @@
     document.querySelectorAll('#type-filters .filter').forEach(button => button.classList.toggle('active', button.dataset.type === 'All'));
     render();
   });
-  document.querySelector('#report-form').addEventListener('submit', event => {
+  document.querySelector('#report-form').addEventListener('submit', async event => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const category = String(data.get('category') || 'Other');
@@ -526,41 +665,126 @@
     }
     const form = event.currentTarget;
     const submitButton = form.querySelector('[type="submit"]');
+    const ownerToken = sharedBackend.enabled ? Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2,'0')).join('') : '';
+    if (ownerToken) item.ownerToken = ownerToken;
     submitButton.disabled = true;
     const nextItems = [item, ...items];
     const saved = saveItems(nextItems);
-    submitButton.disabled = false;
     if (!saved) {
+      submitButton.disabled = false;
       document.querySelector('#report-status').textContent = 'Could not save this report. Browser storage may be full or disabled. Your report was not added.';
       return;
     }
-    items = nextItems; render(); form.reset(); selectedPhotoData = ''; photoPreview.innerHTML = ''; photoPreview.classList.add('hidden'); updateReportCopy(); closeDialog(reportDialog);
-    document.querySelector('#report-status').textContent = 'Local demo: the report and email are stored in this browser only. No one else can see them; no message is sent automatically.';
+    items = nextItems;
+    let detailMessage = 'Report saved on this device.';
+    if (sharedBackend.enabled) {
+      document.querySelector('#report-status').textContent = 'Posting your report to the community board…';
+      try {
+        const result = await sharedBackend.createReport(item, ownerToken);
+        item.remote = true;
+        item.photoPath = result.photoPath || '';
+        if (item.photoPath) item.photoData = '';
+        remoteItems = [{...item,email:'',photoData:'',ownerToken:'',remote:true}, ...remoteItems.filter(entry => entry.id !== item.id)];
+        detailMessage = result.photoError
+          ? 'Your report is shared, but its photo could not be uploaded. The report will show its item icon.'
+          : 'Your report is shared. Your email stays private; replies arrive in My inbox in this browser.';
+        saveItems(items);
+      } catch {
+        // The database may have committed before a connection failed. Retry the
+        // same ID and recovery token; the create RPC is safely idempotent.
+        try {
+          const result = await sharedBackend.createReport(item, ownerToken);
+          item.remote = true;
+          item.photoPath = result.photoPath || '';
+          if (item.photoPath) item.photoData = '';
+          remoteItems = [{...item,email:'',photoData:'',ownerToken:'',remote:true}, ...remoteItems.filter(entry => entry.id !== item.id)];
+          detailMessage = result.photoError
+            ? 'Your report is shared, but its photo could not be uploaded. The report will show its item icon.'
+            : 'Your report is shared. Your email stays private; replies arrive in My inbox in this browser.';
+          saveItems(items);
+        } catch {
+          item.ownerToken = '';
+          item.remote = false;
+          saveItems(items);
+          detailMessage = 'The community board could not be reached. Your report was saved only on this device.';
+        }
+      }
+    }
+    submitButton.disabled = false;
+    mergeRemoteItems();
+    form.reset(); selectedPhotoData = ''; photoPreview.innerHTML = ''; photoPreview.classList.add('hidden'); updateReportCopy(); closeDialog(reportDialog);
+    document.querySelector('#report-status').textContent = sharedBackend.enabled
+      ? 'Your email stays in this browser. Replies to shared reports arrive in My inbox.'
+      : 'Local demo: the report and email are stored in this browser only. No one else can see them; no message is sent automatically.';
     setTimeout(() => {
       openDetail(item.id);
-      document.querySelector('#detail-status').textContent = 'Report saved on this device.';
+      document.querySelector('#detail-status').textContent = detailMessage;
+      refreshInboxCount();
     }, 250);
   });
   document.querySelector('#contact-finder').addEventListener('click', () => {
     const id = getHashItemId();
     const item = items.find(entry => entry.id === id);
     if (!item) { showToast('This item listing could not be found.'); return; }
+    if (item.remote && !item.ownerToken) {
+      messageReportId = item.id;
+      document.querySelector('#message-form').reset();
+      document.querySelector('#message-status').textContent = 'Your reply email is visible only to the report owner.';
+      messageDialog.showModal();
+      return;
+    }
+    if (item.ownerToken) { showToast('You cannot message your own report. Check My inbox for replies.'); return; }
     const subject = encodeURIComponent(`FindIt ${item.type === 'Found' ? 'recovery' : 'lost item'} request: ${item.name}`);
     const body = encodeURIComponent(item.type === 'Found' ? `Hi! I think I can identify your found item, “${item.name}”. Could we arrange a safe handoff?` : `Hi! I saw your lost item report for “${item.name}”. I may have information that can help.`);
     window.location.href = `mailto:${encodeURIComponent(item.email)}?subject=${subject}&body=${body}`;
   });
-  document.querySelector('#delete-report').addEventListener('click', () => {
+  document.querySelector('#message-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const report = items.find(item => item.id === messageReportId && item.remote && !item.ownerToken);
+    if (!report) { document.querySelector('#message-status').textContent = 'This shared report is no longer available.'; return; }
+    const form = event.currentTarget;
+    const button = form.querySelector('[type="submit"]');
+    const data = new FormData(form);
+    button.disabled = true;
+    document.querySelector('#message-status').textContent = 'Sending your private message…';
+    try {
+      await sharedBackend.sendMessage(report.id,String(data.get('email') || '').trim(),String(data.get('message') || '').trim());
+      closeDialog(messageDialog);
+      document.querySelector('#detail-status').textContent = 'Your message was sent to the report owner’s private inbox. They can reply to the email you provided.';
+      form.reset();
+    } catch {
+      document.querySelector('#message-status').textContent = 'Message could not be sent. Check your connection, then try again later.';
+    } finally { button.disabled = false; }
+  });
+  document.querySelector('#inbox-button').addEventListener('click', openInbox);
+  document.querySelector('#inbox-refresh').addEventListener('click', openInbox);
+  document.querySelector('#refresh-reports').addEventListener('click', () => refreshSharedBoard());
+
+  document.querySelector('#delete-report').addEventListener('click', async () => {
     if (!currentDetailItem || currentDetailItem.demo || currentDetailItem.sharedLink) return;
     const item = items.find(entry => entry.id === currentDetailItem.id);
     if (!item || !window.confirm('Delete this report from this browser? This cannot be undone.')) return;
+    const deleteButton = document.querySelector('#delete-report');
+    deleteButton.disabled = true;
+    if (item.remote && item.ownerToken) {
+      try {
+        await sharedBackend.deleteReport(item,item.ownerToken);
+        remoteItems = remoteItems.filter(entry => entry.id !== item.id);
+      } catch {
+        deleteButton.disabled = false;
+        document.querySelector('#detail-status').textContent = 'The shared report could not be deleted. Check your connection and try again.';
+        return;
+      }
+    }
     const nextItems = items.filter(entry => entry.id !== item.id);
-    if (!saveItems(nextItems)) { document.querySelector('#detail-status').textContent = 'Could not delete this report because browser storage is unavailable.'; return; }
+    if (!saveItems(nextItems)) { deleteButton.disabled = false; document.querySelector('#detail-status').textContent = 'Could not delete this report because browser storage is unavailable.'; return; }
     items = nextItems;
     savedIds = savedIds.filter(id => id !== item.id);
     persistSavedItems(savedIds);
     closeDialog(detailDialog);
     render();
-    showToast('Report deleted from this browser.');
+    deleteButton.disabled = false;
+    showToast(item.remote ? 'Shared report deleted.' : 'Report deleted from this browser.');
   });
   document.addEventListener('keydown', event => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); search.focus(); }
@@ -596,16 +820,23 @@
     applyTheme(preferredTheme);
     try { localStorage.setItem(THEME_KEY, preferredTheme); } catch {}
   });
-  window.addEventListener('hashchange', () => {
+  window.addEventListener('hashchange', async () => {
     const sharedItem = getHashShareItem();
     if (sharedItem) { openDetail(sharedItem, false); return; }
     const id = getHashItemId();
     if (id && items.some(item => item.id === id)) openDetail(id, false);
+    else if (id && sharedBackend.enabled) await resolveAndOpenReport(id);
     else if (/^#(?:item=|share=)/.test(window.location.hash)) showToast('This report link is invalid or incomplete.');
   });
+  window.addEventListener('focus', refreshInboxCount);
+  updateSharedLabels();
   render();
   const initialItem = getHashShareItem() || getHashItemId();
-  if (initialItem) openDetail(initialItem, false);
+  if (initialItem && typeof initialItem === 'object') openDetail(initialItem, false);
+  else if (initialItem && items.some(item => item.id === initialItem)) openDetail(initialItem, false);
+  else if (initialItem && sharedBackend.enabled) refreshSharedBoard({quiet:true,openHash:true});
+  else if (initialItem) showToast('This report is not available in this browser.');
+  if (sharedBackend.enabled && !initialItem) refreshSharedBoard({quiet:true});
   const qrScript = document.createElement('script');
   qrScript.src = 'vendor/qrcodejs/qrcode.min.js';
   qrScript.async = true;
