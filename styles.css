@@ -876,3 +876,5 @@ main>section,.footer{transform-style:preserve-3d}
 /* Keep every surface crisp: disable the glass blur that made some areas look out of focus. */
 *,*::before,*::after{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 .visual-glow{filter:none!important}
+/* Shared-board inbox */
+.inbox-list{display:grid;gap:10px;max-height:min(52vh,520px);overflow:auto;margin:14px 0}.inbox-message{padding:15px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--paper) 82%,var(--ink) 18%)}.inbox-message-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.inbox-message-head strong{font-size:13px}.inbox-message-head time{font-size:10px;color:var(--muted)}.inbox-message p{margin:10px 0;color:var(--ink);font-size:13px;line-height:1.55;overflow-wrap:anywhere}.inbox-message .text-link{color:var(--ink);text-decoration:underline;text-underline-offset:3px}.inbox-empty{padding:14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:12px;line-height:1.6}.filter-row #inbox-button{border-style:solid}.filter-row #refresh-reports{white-space:nowrap}

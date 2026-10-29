@@ -11,6 +11,9 @@ module.exports = defineConfig({
     baseURL: 'http://127.0.0.1:4173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // The UI intentionally has continuous card motion. Test with the same
+    // stable, accessible variant used by visitors who request reduced motion.
+    reducedMotion: 'reduce',
     ...devices['Desktop Chrome']
   },
   webServer: {

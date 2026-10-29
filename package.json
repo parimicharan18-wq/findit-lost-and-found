@@ -4,7 +4,7 @@
   "private": true,
   "description": "Static lost-and-found reporting prototype",
   "scripts": {
-    "check": "node --check app.js && node --check scripts/build.mjs && node --check scripts/serve.mjs && node --check scripts/smoke.mjs",
+    "check": "node --check app.js && node --check shared-config.js && node --check shared-backend.js && node --check scripts/build.mjs && node --check scripts/serve.mjs && node --check scripts/smoke.mjs",
     "build": "node scripts/build.mjs",
     "test": "npm run build && playwright test"
   },

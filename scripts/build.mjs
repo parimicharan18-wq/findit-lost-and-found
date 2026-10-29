@@ -3,7 +3,7 @@ import { resolve, relative, sep } from 'node:path';
 
 const root = process.cwd();
 const output = resolve(root, 'dist');
-const entries = ['index.html', 'app.js', 'styles.css', 'assets', 'vendor'];
+const entries = ['index.html', 'app.js', 'shared-config.js', 'shared-backend.js', 'styles.css', 'assets', 'vendor'];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
