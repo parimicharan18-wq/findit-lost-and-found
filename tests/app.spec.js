@@ -1,4 +1,20 @@
-const { test, expect } = require('@playwright/test');
+const { test: playwrightTest, expect } = require('@playwright/test');
+
+const test = playwrightTest.extend({
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('findit-owner-session-v1', JSON.stringify({
+        access_token:'test-access-token', refresh_token:'test-refresh-token',
+        user:{id:'test-owner',email:'owner@example.test',user_metadata:{},app_metadata:{provider:'email'}}
+      }));
+    });
+    await page.route('**/auth/v1/user*', route => route.fulfill({
+      contentType:'application/json',
+      body:JSON.stringify({id:'test-owner',email:'owner@example.test',user_metadata:{},app_metadata:{provider:'email'},created_at:'2026-01-01T00:00:00Z'})
+    }));
+    await use(page);
+  }
+});
 
 async function useLocalReports(page) {
   await page.addInitScript(() => {
