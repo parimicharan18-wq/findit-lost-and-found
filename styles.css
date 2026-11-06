@@ -931,3 +931,14 @@ body::before{content:none!important}
 :root[data-theme="dark"] .auth-brand-copy strong span{color:#b8b8bd}
 :root[data-theme="dark"] .auth-modal #owner-google{background:linear-gradient(145deg,#28282a,#171719)}
 @media(max-width:480px){.auth-modal{padding:20px;border-radius:22px}.auth-modal .modal-head{margin-top:22px}.auth-modal .phone-auth{grid-template-columns:1fr}.auth-modal .phone-auth>.field-label,.auth-modal #owner-otp-wrap{grid-column:1}.auth-modal .phone-auth>.submit-button,.auth-modal #owner-otp-wrap .submit-button{width:100%}.auth-modal #owner-otp-wrap{grid-template-columns:1fr}.auth-options{align-items:flex-start}.auth-modal .owner-remember{font-size:10px}}
+
+/* Country-aware phone sign-in and clear account navigation. */
+.auth-modal .phone-number-fields{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,.42fr) minmax(0,.58fr);gap:8px 10px;min-width:0}
+.auth-modal .phone-number-fields>div{display:grid;gap:7px;min-width:0}
+.auth-modal .phone-number-fields .field-label{margin:0;font-size:10px}
+.auth-modal #owner-phone-country,.auth-modal #owner-phone-login{width:100%;min-width:0;height:48px;padding-inline:10px;border-radius:12px;font-size:12px}
+.auth-modal #owner-send-otp{grid-column:1/-1;width:100%;margin:0}
+.auth-modal .phone-auth-help{grid-column:1/-1;margin:0;font-size:10px;line-height:1.5}
+.auth-modal #owner-send-otp:disabled{cursor:not-allowed;opacity:.5;transform:none;box-shadow:none}
+.auth-modal #owner-send-otp:not(:disabled){box-shadow:0 5px 14px rgba(0,0,0,.08)}
+@media(max-width:480px){.auth-modal .phone-number-fields{grid-template-columns:minmax(0,.42fr) minmax(0,.58fr);gap:8px}.auth-modal #owner-phone-country,.auth-modal #owner-phone-login{padding-inline:8px;font-size:11px}}
