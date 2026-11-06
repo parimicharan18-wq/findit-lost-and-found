@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://parimicharan18-wq.github.io/findit-lost-and-found/sitemap.xml
