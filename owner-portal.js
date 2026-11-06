@@ -32,6 +32,7 @@
   session=JSON.parse(localStorage.getItem(store)||sessionStorage.getItem(store)||'null');syncAccountNav();const rawHash=location.hash.slice(1),oauthHash=rawHash.includes('#access_token=')?rawHash.slice(rawHash.lastIndexOf('#')+1):rawHash,oauth=new URLSearchParams(oauthHash);window.FindItOwner=Object.freeze({openFinderTag});
   function clearSession(){localStorage.removeItem(store);sessionStorage.removeItem(store);session=null;syncAccountNav()}
   if(oauth.has('access_token')){session={access_token:oauth.get('access_token'),refresh_token:oauth.get('refresh_token')||'',user:null};api('/auth/v1/user',{},true).then(user=>{if(!user?.id)throw Error('The account could not be verified.');setSession({...session,user});let route='';try{route=sessionStorage.getItem(pendingRoute)||'';sessionStorage.removeItem(pendingRoute)}catch{}history.replaceState(null,'',location.pathname+location.search+(route.startsWith('#')?route:'#home'));unlockApp();dashboard()}).catch(()=>{clearSession();history.replaceState(null,'',location.pathname+location.search+'#home');requireLogin('Could not verify your login. Please sign in again.')})}
+  else if(!base)unlockApp();
   else if(session?.access_token){api('/auth/v1/user',{},true).then(user=>{if(!user?.id)throw Error('The account could not be verified.');setSession({...session,user});unlockApp();dashboard()}).catch(()=>{clearSession();requireLogin('Your session expired. Please sign in again.')})}
   else requireLogin();
 })();
