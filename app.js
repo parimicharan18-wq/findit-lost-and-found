@@ -236,7 +236,6 @@
       ...localItems.filter(item => !remoteIds.has(item.id))
     ];
     render();
-    renderOwnerDashboard();
   }
 
   function renderOwnerDashboard() {
@@ -264,6 +263,7 @@
   }
 
   async function openFinderTag(id) {
+    if (/^[a-f0-9]{64}$/.test(id) && window.FindItOwner) { window.FindItOwner.openFinderTag(id); return; }
     showFinderState(null, 'checking');
     let item = items.find(entry => entry.id === id);
     if (!item && sharedBackend.enabled) {
@@ -294,7 +294,6 @@
     try {
       inboxMessages = await sharedBackend.listMessages(ownerTokens());
       document.querySelector('#inbox-count').textContent = String(inboxMessages.length);
-      renderOwnerDashboard();
     } catch {
       document.querySelector('#inbox-count').textContent = '…';
     }
@@ -510,8 +509,6 @@
     closeDialog(scannerDialog);
     openDetail(item, false);
   }
-  document.querySelector('#owner-dashboard').addEventListener('click', () => { renderOwnerDashboard(); ownerDialog.showModal(); });
-  document.querySelector('#owner-add-report').addEventListener('click', () => { closeDialog(ownerDialog); document.querySelector('[data-open-report]').click(); });
   document.querySelector('#finder-rescan').addEventListener('click', () => { document.querySelector('#finder-state').classList.add('hidden'); document.querySelector('#items').classList.remove('hidden'); document.querySelector('#scan-qr').click(); });
   async function scanQrFrame() {
     if (!scannerStream || !scannerDialog.open) return;

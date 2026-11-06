@@ -1,0 +1,2 @@
+[functions.submit-finder-report]
+verify_jwt = false
