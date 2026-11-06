@@ -1,12 +1,12 @@
-const CACHE_NAME = 'findit-shell-v5';
+const CACHE_NAME = 'findit-shell-v6';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/styles.css?v=30',
-  '/app.js?v=13',
-  '/owner-portal.js?v=4',
+  '/app.js?v=14',
+  '/owner-portal.js?v=5',
   '/shared-config.js?v=1',
-  '/shared-backend.js?v=1',
+  '/shared-backend.js?v=2',
   '/pwa.js?v=1',
   '/manifest.webmanifest',
   '/assets/findit-app-icon.svg',
