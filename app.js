@@ -73,6 +73,8 @@
   const scannerDialog = document.querySelector('#scanner-dialog');
   const messageDialog = document.querySelector('#message-dialog');
   const inboxDialog = document.querySelector('#inbox-dialog');
+  const ownerDialog = document.querySelector('#owner-dialog');
+  let finderItem = null;
 
   function getHashItemId() {
     const match = window.location.hash.match(/^#item=(.+)$/);
@@ -115,7 +117,7 @@
   function shareUrlForItem(item) {
     const url = new URL(window.location.href);
     url.search = '';
-    url.hash = item.remote ? `item=${encodeURIComponent(item.id)}` : `share=${encodeShareItem(item)}`;
+    url.hash = item.remote ? `tag=${encodeURIComponent(item.id)}` : `share=${encodeShareItem(item)}`;
     return url.href;
   }
 
@@ -234,6 +236,43 @@
       ...localItems.filter(item => !remoteIds.has(item.id))
     ];
     render();
+    renderOwnerDashboard();
+  }
+
+  function renderOwnerDashboard() {
+    const owned = readItems().filter(item => !item.demo && !item.sharedLink && (item.email || item.ownerToken));
+    document.querySelector('#owner-report-count').textContent = String(owned.length);
+    document.querySelector('#owner-message-count').textContent = String(inboxMessages.length);
+    const list = document.querySelector('#owner-report-list');
+    list.innerHTML = owned.length ? owned.map(item => `<article class="owner-report"><div><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.type)} · ${escapeHTML(item.location)}</span></div><button class="button button-outline" type="button" data-owner-item="${escapeHTML(item.id)}">Open tag</button></article>`).join('') : '<p class="inbox-empty">No owner reports are saved in this browser yet. Register an item to create a report and QR tag.</p>';
+    list.querySelectorAll('[data-owner-item]').forEach(button => button.addEventListener('click', () => { closeDialog(ownerDialog); openDetail(button.dataset.ownerItem); }));
+  }
+
+  function showFinderState(item, status = 'valid') {
+    finderItem = item;
+    const section = document.querySelector('#finder-state');
+    section.classList.remove('hidden');
+    document.querySelector('#finder-title').textContent = status === 'valid' ? item.name : status === 'checking' ? 'Checking this tag…' : 'This tag is invalid or unknown';
+    document.querySelector('#finder-description').textContent = status === 'valid'
+      ? `${item.type} item · ${item.category} · ${item.location}. Review the public item details and contact the reporter safely.`
+      : status === 'checking' ? 'Looking up this item tag on the community board.' : 'We couldn’t find an item linked to this QR token. Check the printed tag or scan a current FindIt QR code.';
+    document.querySelector('#finder-eyebrow').textContent = status === 'valid' ? 'FINDIT ITEM TAG' : status === 'checking' ? 'FINDIT ITEM TAG' : 'UNKNOWN QR TOKEN';
+    document.querySelector('#finder-open-report').classList.toggle('hidden', status !== 'valid');
+    document.querySelector('#finder-rescan').classList.toggle('hidden', status === 'valid');
+    document.querySelector('#items').classList.add('hidden');
+    section.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  async function openFinderTag(id) {
+    showFinderState(null, 'checking');
+    let item = items.find(entry => entry.id === id);
+    if (!item && sharedBackend.enabled) {
+      try { item = await sharedBackend.getReport(id); } catch {}
+      if (item) { remoteItems = [item,...remoteItems.filter(entry => entry.id !== item.id)]; mergeRemoteItems(); }
+    }
+    if (!item) { showFinderState(null, 'invalid'); return; }
+    showFinderState(item, 'valid');
+    document.querySelector('#finder-open-report').onclick = () => openDetail(item);
   }
 
   function updateSharedLabels() {
@@ -255,6 +294,7 @@
     try {
       inboxMessages = await sharedBackend.listMessages(ownerTokens());
       document.querySelector('#inbox-count').textContent = String(inboxMessages.length);
+      renderOwnerDashboard();
     } catch {
       document.querySelector('#inbox-count').textContent = '…';
     }
@@ -445,7 +485,7 @@
     try {
       const url = new URL(rawValue, window.location.href);
       const hash = new URLSearchParams(url.hash.slice(1));
-      reportId = hash.get('item') || '';
+      reportId = hash.get('tag') || hash.get('item') || '';
       const shareToken = hash.get('share');
       if (shareToken) sharedItem = decodeShareItem(shareToken);
     } catch {}
@@ -460,13 +500,19 @@
       } catch {}
     }
     if (!item) {
-      document.querySelector('#scanner-status').textContent = reportId ? 'This QR report is not saved in this browser.' : 'That QR code is not a valid FindIt item report.';
+      stopQrScanner();
+      closeDialog(scannerDialog);
+      if (reportId) showFinderState(null, 'invalid');
+      else { document.querySelector('#scanner-status').textContent = 'That QR code is not a valid FindIt item report.'; scannerDialog.showModal(); }
       return;
     }
     stopQrScanner();
     closeDialog(scannerDialog);
     openDetail(item, false);
   }
+  document.querySelector('#owner-dashboard').addEventListener('click', () => { renderOwnerDashboard(); ownerDialog.showModal(); });
+  document.querySelector('#owner-add-report').addEventListener('click', () => { closeDialog(ownerDialog); document.querySelector('[data-open-report]').click(); });
+  document.querySelector('#finder-rescan').addEventListener('click', () => { document.querySelector('#finder-state').classList.add('hidden'); document.querySelector('#items').classList.remove('hidden'); document.querySelector('#scan-qr').click(); });
   async function scanQrFrame() {
     if (!scannerStream || !scannerDialog.open) return;
     try {
@@ -821,9 +867,13 @@
     try { localStorage.setItem(THEME_KEY, preferredTheme); } catch {}
   });
   window.addEventListener('hashchange', async () => {
+    document.querySelector('#finder-state').classList.add('hidden');
+    document.querySelector('#items').classList.remove('hidden');
     const sharedItem = getHashShareItem();
     if (sharedItem) { openDetail(sharedItem, false); return; }
     const id = getHashItemId();
+    const tagMatch = window.location.hash.match(/^#tag=(.+)$/);
+    if (tagMatch) { let tag = tagMatch[1]; try { tag = decodeURIComponent(tag); } catch {} await openFinderTag(tag); return; }
     if (id && items.some(item => item.id === id)) openDetail(id, false);
     else if (id && sharedBackend.enabled) await resolveAndOpenReport(id);
     else if (/^#(?:item=|share=)/.test(window.location.hash)) showToast('This report link is invalid or incomplete.');
@@ -832,7 +882,9 @@
   updateSharedLabels();
   render();
   const initialItem = getHashShareItem() || getHashItemId();
-  if (initialItem && typeof initialItem === 'object') openDetail(initialItem, false);
+  const initialTag = window.location.hash.match(/^#tag=(.+)$/);
+  if (initialTag) { let tag = initialTag[1]; try { tag = decodeURIComponent(tag); } catch {} openFinderTag(tag); }
+  else if (initialItem && typeof initialItem === 'object') openDetail(initialItem, false);
   else if (initialItem && items.some(item => item.id === initialItem)) openDetail(initialItem, false);
   else if (initialItem && sharedBackend.enabled) refreshSharedBoard({quiet:true,openHash:true});
   else if (initialItem) showToast('This report is not available in this browser.');
