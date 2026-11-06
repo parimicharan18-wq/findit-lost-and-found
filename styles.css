@@ -901,3 +901,33 @@ body::before{content:none!important}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation:none!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 .owner-auth-actions{display:flex;gap:8px;margin:10px 0}.owner-remember{display:flex;align-items:center;gap:8px;margin:13px 0;font-size:12px}.owner-item-row{padding:14px;border:1px solid var(--line);border-radius:14px;margin:10px 0}.owner-item-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.owner-item-top>strong{flex:1}.finder-report-row{margin-top:11px;padding:12px;border-radius:10px;background:color-mix(in srgb,var(--paper) 80%,var(--ink) 20%);overflow-wrap:anywhere}.finder-report-row p{margin:8px 0}.owner-empty{font-size:12px;color:var(--muted)}
 .account-nav{gap:8px}.account-nav-avatar{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:var(--green);font-size:9px;font-weight:800}.owner-profile{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--paper) 75%,white 25%)}.owner-profile-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.owner-profile-heading h3{margin:0;font:700 15px var(--display)}.owner-profile-heading p{margin:4px 0 0;font-size:10px;color:var(--muted)}.owner-profile-heading .button{min-height:34px;padding-inline:12px;font-size:10px}.owner-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.owner-profile-grid>div{display:grid;gap:4px;min-width:0}.owner-profile-grid span{font-size:9px;color:var(--muted)}.owner-profile-grid strong{font-size:11px;overflow-wrap:anywhere}.owner-profile-form{margin-top:8px}.owner-profile-form .privacy-note{margin:7px 0}.profile-password-fields{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}.optional-label{margin-left:6px}.profile-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}.profile-form-actions .button{min-height:38px}.form-control[readonly]{opacity:.8}@media(max-width:480px){.account-nav{padding-inline:10px}.owner-profile-grid{grid-template-columns:1fr}.owner-profile-heading{align-items:flex-start}}
+
+/* Owner sign-in: match FindIt's clean, rounded black-and-white surfaces. */
+.auth-modal{width:min(480px,calc(100vw - 24px));max-height:min(92dvh,860px);overflow:auto;padding:clamp(20px,5vw,32px);border-radius:26px}
+.auth-form{display:flex;flex-direction:column;gap:0}
+.auth-brandline{display:flex;align-items:center;gap:11px;min-height:46px}
+.auth-brand-mark{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#fff,#e9e9ec);box-shadow:0 7px 18px rgba(0,0,0,.12),inset 0 1px 0 #fff;color:#000;font:800 23px/1 var(--display)}
+.auth-brand-copy{display:grid;gap:1px}.auth-brand-copy strong{font:800 19px/1 var(--display);letter-spacing:-.8px}.auth-brand-copy strong span{color:#777}.auth-brand-copy small{font-size:7px;letter-spacing:1.35px;color:var(--muted);font-weight:700}
+.auth-brand-tag{margin-left:auto;padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--paper) 92%,var(--ink) 8%);font-size:8px;font-weight:750;letter-spacing:.1em;color:var(--muted)}
+.auth-modal .modal-head{align-items:flex-start;margin-top:26px}.auth-modal .modal-head h2{margin:4px 0 0;font:750 clamp(29px,7vw,36px)/1.05 var(--display);letter-spacing:-.055em;color:var(--ink)}
+.auth-modal .modal-head .eyebrow{font-size:9px;letter-spacing:.16em}.auth-modal .close-button{flex:0 0 auto}
+.auth-subtitle{margin:10px 0 18px;color:var(--muted);font-size:13px;line-height:1.6;max-width:39ch}
+.auth-modal .field-label{margin:13px 0 7px;font-size:11px;font-weight:700;color:var(--ink)}
+.auth-modal .form-control{height:49px;padding-inline:14px;border-radius:14px;font-size:13px}
+.auth-modal .form-control::placeholder{color:color-mix(in srgb,var(--muted) 72%,transparent)}
+.auth-options{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 4px}
+.auth-modal .owner-remember{margin:0;font-size:11px;color:var(--muted)}.auth-modal .owner-remember input{accent-color:var(--ink)}
+.auth-modal .text-link{padding:5px 0;background:none;border:0;cursor:pointer;color:var(--ink);font-size:11px}.auth-modal .text-link:hover{text-decoration:underline}
+.auth-modal [role=status]{margin:5px 0 8px;line-height:1.5}
+.auth-modal .auth-submit,.auth-modal #owner-google,.auth-modal #owner-send-otp,.auth-modal #owner-verify-otp{min-height:49px;border-radius:14px;font-size:12px}
+.auth-modal .auth-submit{font-size:13px;font-weight:750;box-shadow:0 8px 18px rgba(0,0,0,.13)}
+.auth-modal .auth-divider{margin:18px 0;color:var(--muted);font-size:10px}
+.auth-modal #owner-google{width:100%;margin:0;border-radius:14px;background:linear-gradient(145deg,var(--paper),color-mix(in srgb,var(--paper) 84%,var(--ink) 16%));font-weight:700}
+.auth-modal .phone-auth{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px 10px;margin-top:16px;padding:15px;border:1px solid var(--line);border-radius:18px;background:color-mix(in srgb,var(--paper) 96%,var(--ink) 4%)}
+.auth-modal .phone-auth>.field-label{grid-column:1/-1;margin:0}.auth-modal .phone-auth>.form-control{min-width:0}.auth-modal .phone-auth>.submit-button{width:auto;min-width:138px;margin:0;padding-inline:14px}
+.auth-modal #owner-otp-wrap{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px 10px}.auth-modal #owner-otp-wrap.hidden{display:none}.auth-modal #owner-otp-wrap .field-label{grid-column:1/-1;margin:4px 0 0}.auth-modal #owner-otp-wrap .submit-button{width:auto;margin:0;padding-inline:14px}
+.auth-modal>form>small.privacy-note{display:block;margin:12px 2px 0;font-size:10px;line-height:1.5;text-align:center}
+:root[data-theme="dark"] .auth-brand-mark{background:linear-gradient(145deg,#303033,#141416);border-color:#45454a;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12)}
+:root[data-theme="dark"] .auth-brand-copy strong span{color:#b8b8bd}
+:root[data-theme="dark"] .auth-modal #owner-google{background:linear-gradient(145deg,#28282a,#171719)}
+@media(max-width:480px){.auth-modal{padding:20px;border-radius:22px}.auth-modal .modal-head{margin-top:22px}.auth-modal .phone-auth{grid-template-columns:1fr}.auth-modal .phone-auth>.field-label,.auth-modal #owner-otp-wrap{grid-column:1}.auth-modal .phone-auth>.submit-button,.auth-modal #owner-otp-wrap .submit-button{width:100%}.auth-modal #owner-otp-wrap{grid-template-columns:1fr}.auth-options{align-items:flex-start}.auth-modal .owner-remember{font-size:10px}}
