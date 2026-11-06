@@ -236,7 +236,6 @@
       ...localItems.filter(item => !remoteIds.has(item.id))
     ];
     render();
-    renderOwnerDashboard();
   }
 
   function renderOwnerDashboard() {
@@ -295,7 +294,6 @@
     try {
       inboxMessages = await sharedBackend.listMessages(ownerTokens());
       document.querySelector('#inbox-count').textContent = String(inboxMessages.length);
-      renderOwnerDashboard();
     } catch {
       document.querySelector('#inbox-count').textContent = '…';
     }
