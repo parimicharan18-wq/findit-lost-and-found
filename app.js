@@ -263,7 +263,7 @@
   }
 
   async function openFinderTag(id) {
-    if (/^[a-f0-9]{64}$/.test(id) && window.FindItOwner) { window.FindItOwner.openFinderTag(id); return; }
+    if (/^[a-f0-9]{64}$/.test(id)) { if (window.FindItOwner) window.FindItOwner.openFinderTag(id); else window.finditPendingFinderTag=id; return; }
     showFinderState(null, 'checking');
     let item = items.find(entry => entry.id === id);
     if (!item && sharedBackend.enabled) {

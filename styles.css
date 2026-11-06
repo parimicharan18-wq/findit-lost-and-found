@@ -942,3 +942,11 @@ body::before{content:none!important}
 .auth-modal #owner-send-otp:disabled{cursor:not-allowed;opacity:.5;transform:none;box-shadow:none}
 .auth-modal #owner-send-otp:not(:disabled){box-shadow:0 5px 14px rgba(0,0,0,.08)}
 @media(max-width:480px){.auth-modal .phone-number-fields{grid-template-columns:minmax(0,.42fr) minmax(0,.58fr);gap:8px}.auth-modal #owner-phone-country,.auth-modal #owner-phone-login{padding-inline:8px;font-size:11px}}
+
+/* Require an authenticated session before the app interface is available. */
+html.auth-required,html.auth-required body{min-height:100%;background:var(--page,#f5f5f7)}
+html.auth-required .site-shell>*:not(#owner-auth-dialog){visibility:hidden!important}
+html.auth-required #owner-auth-dialog{visibility:visible}
+#owner-auth-dialog.auth-gate{width:min(520px,calc(100vw - 28px));max-height:min(92dvh,820px);overflow:auto}
+#owner-auth-dialog.auth-gate #owner-auth-close{display:none}
+#owner-auth-toggle{grid-column:1/-1;justify-self:center;margin:1px 0 4px;font-size:12px}
