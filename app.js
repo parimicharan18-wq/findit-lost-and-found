@@ -374,11 +374,22 @@
     grid.innerHTML = shown.map(item => `
       <article class="item-card" data-id="${escapeHTML(item.id)}">
         <button class="item-open" type="button" data-item-id="${escapeHTML(item.id)}" aria-label="View ${escapeHTML(item.name)}">
-        <div class="item-art art-${categoryClass(item.category)}${photoForItem(item) ? ' has-photo' : ''}">${photoForItem(item) ? `<img class="item-photo" src="${escapeHTML(photoForItem(item).src)}" alt="${escapeHTML(photoForItem(item).alt)}" loading="lazy" decoding="async">${photoForItem(item).example ? '<span class="image-note">EXAMPLE PHOTO</span>' : '<span class="image-note report-photo-note">REPORT PHOTO</span>'}` : `<span class="item-emoji" aria-hidden="true">${escapeHTML(item.emoji || '📦')}</span>`}<span class="found-pill">${item.type === 'Lost' ? 'LOOKING FOR' : 'FOUND'}${item.demo ? ' · SAMPLE' : ''}</span>${item.type === 'Found' ? '<span class="qr-chip" aria-hidden="true">▦</span>' : ''}</div>
+        <div class="item-art art-${categoryClass(item.category)}${photoForItem(item) ? ' has-photo' : ''}">${photoForItem(item) ? `<img class="item-photo" src="${escapeHTML(photoForItem(item).src)}" alt="${escapeHTML(photoForItem(item).alt)}" data-fallback-emoji="${escapeHTML(item.emoji || '📦')}" loading="lazy" decoding="async">${photoForItem(item).example ? '<span class="image-note">EXAMPLE PHOTO</span>' : '<span class="image-note report-photo-note">REPORT PHOTO</span>'}` : `<span class="item-emoji" aria-hidden="true">${escapeHTML(item.emoji || '📦')}</span>`}<span class="found-pill">${item.type === 'Lost' ? 'LOOKING FOR' : 'FOUND'}${item.demo ? ' · SAMPLE' : ''}</span>${item.type === 'Found' ? '<span class="qr-chip" aria-hidden="true">▦</span>' : ''}</div>
           <div class="item-body"><div class="item-title-row"><h3 class="item-title">${escapeHTML(item.name)}</h3><span class="item-category">${escapeHTML(item.category)}</span></div><div class="item-meta"><span>⌖ ${escapeHTML(item.location)}</span><span>${escapeHTML(formatDate(item.date))}</span></div><div class="item-footer"><strong>${item.color ? escapeHTML(item.color) : 'Community report'}</strong><span class="scan-hint">${item.type === 'Found' ? '▦ QR details' : '⌕ View report'}</span></div></div>
         </button>
         <button class="save-item${savedIds.includes(item.id) ? ' is-saved' : ''}" type="button" data-save-id="${escapeHTML(item.id)}" aria-label="${savedIds.includes(item.id) ? 'Remove' : 'Save'} ${escapeHTML(item.name)}${savedIds.includes(item.id) ? ' from' : ' for'} saved items" aria-pressed="${savedIds.includes(item.id)}" title="${savedIds.includes(item.id) ? 'Remove saved item' : 'Save for later'}"><span aria-hidden="true">${savedIds.includes(item.id) ? '♥' : '♡'}</span></button>
       </article>`).join('');
+    grid.querySelectorAll('.item-photo').forEach(image => image.addEventListener('error', () => {
+      const art = image.closest('.item-art');
+      if (!art) return;
+      art.classList.remove('has-photo');
+      image.remove();
+      const fallback = document.createElement('span');
+      fallback.className = 'item-emoji';
+      fallback.setAttribute('aria-hidden', 'true');
+      fallback.textContent = image.dataset.fallbackEmoji || '📦';
+      art.prepend(fallback);
+    }, {once:true}));
     document.querySelector('#empty-state').classList.toggle('hidden', shown.length > 0);
     grid.classList.toggle('hidden', shown.length === 0);
     document.querySelector('#showing-count').textContent = shown.length;
@@ -431,6 +442,7 @@
     art.className = `detail-art art-${categoryClass(item.category)}`;
     const photo = photoForItem(item);
     art.innerHTML = photo ? `<img class="detail-photo" src="${escapeHTML(photo.src)}" alt="${escapeHTML(photo.alt)}"><span class="detail-photo-caption">${photo.example ? 'Example photo' : 'Photo added by reporter'}</span>` : escapeHTML(item.emoji || '📦');
+    if (photo) art.querySelector('.detail-photo')?.addEventListener('error', () => { art.textContent = item.emoji || '📦'; }, {once:true});
     const info = document.querySelector('#detail-info');
     document.querySelector('#detail-status').textContent = '';
     info.innerHTML = `<strong>${isFound ? 'FOUND AT' : 'LAST SEEN AT'}</strong><p>⌖ ${escapeHTML(item.location)}</p><strong>${isFound ? 'DATE FOUND' : 'DATE LOST'}</strong><p>${escapeHTML(formatDate(item.date))}</p><strong>CATEGORY</strong><p>${escapeHTML(item.category)}</p>${item.color ? `<strong>IDENTIFYING DETAILS</strong><p>${escapeHTML(item.color)}</p>` : ''}${item.description ? `<strong>DESCRIPTION</strong><p>${escapeHTML(item.description)}</p>` : ''}<strong>REPORT ID</strong><p>${escapeHTML(item.id)}</p>`;

@@ -27,6 +27,16 @@
   const categories = new Set(['Electronics','Mobile Phones','Laptops and Tablets','Bags and Backpacks','Wallets and Purses','Keys','ID Cards and Documents','Books and Stationery','Watches and Jewelry','Clothing','Accessories','Water Bottles','Other']);
   const publicFields = 'id,type,name,category,location,date,color,description,emoji,photo_path,created_at';
 
+  function isKnownTestListing(row) {
+    const name = String(row?.name || '').trim().toLocaleLowerCase();
+    const category = String(row?.category || '').trim().toLocaleLowerCase();
+    const location = String(row?.location || '').trim().toLocaleLowerCase();
+    return category === 'electronics' && (
+      name === 'private detail check' && row?.type === 'Lost' && location === 'north library' ||
+      name === 'test keys' && row?.type === 'Found' && location === 'test library'
+    );
+  }
+
   function endpoint(path) { return `${baseUrl}${path}`; }
   function headers(extra = {}) { return { apikey:publishableKey, ...extra }; }
 
@@ -45,7 +55,7 @@
   }
 
   function normalizeReport(row) {
-    if (!row || typeof row !== 'object' || !['Found','Lost'].includes(row.type)) return null;
+    if (!row || typeof row !== 'object' || !['Found','Lost'].includes(row.type) || isKnownTestListing(row)) return null;
     const date = typeof row.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.date) ? row.date : '';
     const photoPath = typeof row.photo_path === 'string' && /^[a-z0-9-]{8,80}\/[a-z0-9-]{8,80}\.(?:jpg|png|webp)$/i.test(row.photo_path) ? row.photo_path : '';
     return {
