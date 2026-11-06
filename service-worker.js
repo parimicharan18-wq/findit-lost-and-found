@@ -1,9 +1,9 @@
-const CACHE_NAME = 'findit-shell-v1';
+const CACHE_NAME = 'findit-shell-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/styles.css?v=27',
-  '/app.js?v=10',
+  '/styles.css?v=29',
+  '/app.js?v=12',
   '/shared-config.js?v=1',
   '/shared-backend.js?v=1',
   '/pwa.js?v=1',
@@ -34,8 +34,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(response => {
+  event.respondWith(fetch(request).then(response => {
     if (response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
     return response;
-  })));
+  }).catch(async () => (await caches.match(request)) || Response.error()));
 });
