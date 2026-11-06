@@ -1,9 +1,10 @@
-const CACHE_NAME = 'findit-shell-v3';
+const CACHE_NAME = 'findit-shell-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/styles.css?v=29',
-  '/app.js?v=12',
+  '/styles.css?v=30',
+  '/app.js?v=13',
+  '/owner-portal.js?v=2',
   '/shared-config.js?v=1',
   '/shared-backend.js?v=1',
   '/pwa.js?v=1',

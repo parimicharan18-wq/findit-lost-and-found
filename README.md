@@ -66,3 +66,13 @@ The optional backend uses a public Supabase publishable/anon key protected by da
 ## Licence
 
 The repository has no project-level licence. No licence has been added, so the source is not granted an open-source licence by this change. The vendored QRCode.js file retains its own upstream MIT licence notice.
+
+## Owner accounts and registered-item tags
+
+The owner portal upgrade adds Supabase Auth forms, owner-scoped item/report tables, hashed QR tokens, anonymous finder submissions, and a Resend-backed notification function. To activate it on the hosted Supabase project:
+
+1. Apply `supabase/migrations/20261106000000_owner_accounts_and_qr_reports.sql` in the Supabase SQL editor.
+2. Deploy `supabase/functions/submit-finder-report` with the Supabase CLI.
+3. Set the Edge Function secrets `RESEND_API_KEY` and `FINDIT_FROM_EMAIL` to a verified sender address. The function uses Supabase's server-side service-role environment variable; never add these values to `shared-config.js`.
+
+Finder reports are private under row-level security. QR tags contain random tokens while the database stores only SHA-256 hashes. If the migration or function is not deployed, these owner/finder features cannot work even though the static website itself loads.
