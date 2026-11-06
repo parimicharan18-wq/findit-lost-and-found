@@ -9,7 +9,7 @@ create or replace function public.findit_create_owner_profile()
 returns trigger language plpgsql security definer set search_path='' as $$
 begin
  insert into public.findit_owner_profiles(user_id,full_name,mobile)
- values(new.id,left(coalesce(new.raw_user_meta_data->>'full_name','FindIt owner'),100),left(coalesce(new.raw_user_meta_data->>'mobile',''),25))
+ values(new.id,left(coalesce(new.raw_user_meta_data->>'full_name','FindIt owner'),100),left(coalesce(new.raw_user_meta_data->>'mobile',new.phone,'Not provided'),25))
  on conflict(user_id) do update set full_name=excluded.full_name,mobile=excluded.mobile;
  return new;
 end $$;

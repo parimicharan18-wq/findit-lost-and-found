@@ -75,4 +75,6 @@ The owner portal upgrade adds Supabase Auth forms, owner-scoped item/report tabl
 2. Deploy `supabase/functions/submit-finder-report` with the Supabase CLI.
 3. Set the Edge Function secrets `RESEND_API_KEY` and `FINDIT_FROM_EMAIL` to a verified sender address. The function uses Supabase's server-side service-role environment variable; never add these values to `shared-config.js`.
 
+To enable Google sign-in, enable Google under Supabase Authentication → Sign In / Providers and add the Supabase callback URL shown there to the Google OAuth client. Add the FindIt Pages URL to the allowed redirect URLs. To enable phone sign-in, configure an SMS provider under Supabase Authentication → Sign In / Providers → Phone, enable phone OTP, and set the SMS rate limits. These provider settings are controlled by the Supabase project owner; the website only starts the secure OAuth or OTP flow.
+
 Finder reports are private under row-level security. QR tags contain random tokens while the database stores only SHA-256 hashes. If the migration or function is not deployed, these owner/finder features cannot work even though the static website itself loads.
