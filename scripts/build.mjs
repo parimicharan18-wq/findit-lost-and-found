@@ -22,7 +22,7 @@ if (!html.includes("default-src 'self'") || !(await readFile(resolve(output, 'ap
   throw new Error('Expected local-only scripts and a self-only content policy.');
 }
 const manifest = JSON.parse(await readFile(resolve(output, 'manifest.webmanifest'), 'utf8'));
-const iconSizes = new Set((manifest.icons || []).flatMap(icon => String(icon.sizes || '').split(/\\s+/)));
+const iconSizes = new Set((manifest.icons || []).flatMap(icon => String(icon.sizes || '').trim().split(' ')));
 if (!manifest.name || !manifest.start_url || !['standalone','minimal-ui','fullscreen'].includes(manifest.display) || !iconSizes.has('192x192') || !iconSizes.has('512x512')) {
   throw new Error('PWA manifest is missing its app name, launch mode, or 192/512 icons.');
 }
