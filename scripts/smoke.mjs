@@ -29,6 +29,18 @@ const localAssets = new Set([...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
   .map(value => new URL(value, site).href));
 const appUrl = [...localAssets].find(value => new URL(value).pathname.endsWith('/app.js'));
 if (!appUrl) throw new Error('Published HTML does not load the FindIt app script.');
+const manifestResponse = await fetchOk(new URL('./manifest.webmanifest', site).href);
+const manifest = await manifestResponse.json();
+const iconSizes = new Set((manifest.icons || []).flatMap(icon => String(icon.sizes || '').split(/\\s+/)));
+if (!iconSizes.has('192x192') || !iconSizes.has('512x512') || manifest.display !== 'standalone') {
+  throw new Error('Published PWA manifest is missing the required app icons or standalone display mode.');
+}
+for (const icon of manifest.icons || []) await fetchOk(new URL(icon.src, manifestResponse.url).href);
+const workerResponse = await fetchOk(new URL('./service-worker.js', site).href);
+const workerSource = await workerResponse.text();
+if (!workerSource.includes('findit-report-sync') || !workerSource.includes('APP_SHELL_PATHS')) {
+  throw new Error('Published service worker is missing offline cache or background report sync.');
+}
 const appResponse = await fetchOk(appUrl);
 const appSource = await appResponse.text();
 const qrRelativePath = appSource.match(/qrScript\.src\s*=\s*'([^']+)'/)?.[1];
