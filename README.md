@@ -14,6 +14,15 @@ FindIt is a static lost-and-found website. It helps visitors search reports, cre
 - In configured shared mode, send a private message to a report owner and read replies in the browser-local inbox. Reporter email is not sent to the database.
 - Use the camera scanner where the browser supports `BarcodeDetector` and grants camera access.
 - Get explainable rule-based candidate matches for lost reports.
+- Install FindIt as a PWA. After the first successful online load, the service worker caches the app shell, QR library, and bundled sample-item images.
+- Browse the last cached community feed while offline. New lost/found reports are saved locally first and placed in an IndexedDB outbox; they are uploaded automatically after reconnection. Android Chrome can use Background Sync where available; other browsers retry when the app is opened or returns online.
+- Keep locally created reports and compressed photos available on the same device while offline. Browser storage persistence is requested where the browser supports it.
+
+## Offline behaviour and limits
+
+Offline mode covers the app shell, cached community listings, local search/filtering, and creating/viewing local lost/found reports. It does not make the remote service run offline: sign-in and account changes, registering server-backed QR tags, validating a QR token that has not been cached on this device, sending private messages, and reading the live owner dashboard still require a connection. A report only appears on the shared community board after its queued upload succeeds. Background Sync is browser-controlled and not guaranteed; the app also retries when it opens or receives an online event.
+
+The community photo bucket accepts files up to 280,000 bytes. If a locally saved photo exceeds that upload limit, the report can still sync but its photo may remain local. Keep the FindIt browser storage intact until queued reports show as synced; clearing site data removes the local queue and the private recovery keys.
 
 ## Important: static demo limits
 
