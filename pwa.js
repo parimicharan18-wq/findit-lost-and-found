@@ -37,8 +37,8 @@
   installButton.addEventListener('click', async () => {
     if (!installPrompt) {
       window.alert(
-        'To install FindIt:\\n\\n' +
-        'Android (Chrome): tap ⋮, then choose “Install app” or “Add to Home screen”.\\n\\n' +
+        'To install FindIt:\n\n' +
+        'Android (Chrome): tap ⋮, then choose “Install app” or “Add to Home screen”.\n\n' +
         'iPhone (Safari): tap Share, then “Add to Home Screen”.'
       );
       return;
