@@ -996,7 +996,7 @@
     await refreshSharedBoard({quiet:true});
   });
   if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data?.type === 'FINDIT_OFFLINE_SYNC_FINISHED') {
+    if (event.data?.type === 'FINDIT_OFFLINE_SYNC_FINISHED' || event.data?.type === 'FINDIT_OFFLINE_SYNC_NEEDED') {
       syncPendingReports({quiet:true}).then(() => refreshSharedBoard({quiet:true}));
     }
   });
