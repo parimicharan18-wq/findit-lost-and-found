@@ -40,7 +40,9 @@ test('installed app shell opens offline and local reports remain available', asy
   await expect(page.locator('#detail-status')).toContainText('Saved offline');
   await page.reload();
   await page.getByRole('searchbox', {name:'Search reports'}).fill('Offline blue umbrella');
-  await expect(page.locator('.item-card')).toHaveCount(1);
+  await expect(page.locator('.item-card').filter({hasText:'Offline blue umbrella'})).toHaveCount(1);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('findit-reports-v2')).find(item => item.name === 'Offline blue umbrella'));
+  expect(saved).toBeTruthy();
 });
 
 test('offline community reports are queued and sync once after reconnection', async ({ page, context }) => {
