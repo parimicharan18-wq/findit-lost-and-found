@@ -3,7 +3,7 @@ import { resolve, relative, sep } from 'node:path';
 
 const root = process.cwd();
 const output = resolve(root, 'dist');
-const entries = ['index.html', 'privacy.html', 'robots.txt', 'sitemap.xml', 'app.js', 'owner-portal.js', 'shared-config.js', 'shared-backend.js', 'styles.css', 'pwa.js', 'service-worker.js', 'manifest.webmanifest', 'assets', 'vendor'];
+const entries = ['index.html', 'privacy.html', 'robots.txt', 'sitemap.xml', 'app.js', 'owner-portal.js', 'shared-config.js', 'shared-backend.js', 'offline-sync.js', 'styles.css', 'pwa.js', 'service-worker.js', 'manifest.webmanifest', 'assets', 'vendor'];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
