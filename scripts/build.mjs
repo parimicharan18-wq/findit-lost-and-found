@@ -21,4 +21,14 @@ for (const reference of references) {
 if (!html.includes("default-src 'self'") || !(await readFile(resolve(output, 'app.js'), 'utf8')).includes("vendor/qrcodejs/qrcode.min.js")) {
   throw new Error('Expected local-only scripts and a self-only content policy.');
 }
+const manifest = JSON.parse(await readFile(resolve(output, 'manifest.webmanifest'), 'utf8'));
+const iconSizes = new Set((manifest.icons || []).flatMap(icon => String(icon.sizes || '').split(/\\s+/)));
+if (!manifest.name || !manifest.start_url || !['standalone','minimal-ui','fullscreen'].includes(manifest.display) || !iconSizes.has('192x192') || !iconSizes.has('512x512')) {
+  throw new Error('PWA manifest is missing its app name, launch mode, or 192/512 icons.');
+}
+const worker = await readFile(resolve(output, 'service-worker.js'), 'utf8');
+if (!worker.includes('findit-report-sync') || !worker.includes('APP_SHELL_PATHS')) {
+  throw new Error('Service worker is missing offline caching or queued report sync.');
+}
+
 console.log(`Built ${entries.length} site entries into ${relative(root, output)}.`);
