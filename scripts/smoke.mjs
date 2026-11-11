@@ -31,7 +31,7 @@ const appUrl = [...localAssets].find(value => new URL(value).pathname.endsWith('
 if (!appUrl) throw new Error('Published HTML does not load the FindIt app script.');
 const manifestResponse = await fetchOk(new URL('./manifest.webmanifest', site).href);
 const manifest = await manifestResponse.json();
-const iconSizes = new Set((manifest.icons || []).flatMap(icon => String(icon.sizes || '').split(/\\s+/)));
+const iconSizes = new Set((manifest.icons || []).flatMap(icon => String(icon.sizes || '').trim().split(' ')));
 if (!iconSizes.has('192x192') || !iconSizes.has('512x512') || manifest.display !== 'standalone') {
   throw new Error('Published PWA manifest is missing the required app icons or standalone display mode.');
 }
