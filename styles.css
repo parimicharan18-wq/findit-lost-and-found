@@ -950,3 +950,17 @@ html.auth-required #owner-auth-dialog{visibility:visible}
 #owner-auth-dialog.auth-gate{width:min(520px,calc(100vw - 28px));max-height:min(92dvh,820px);overflow:auto}
 #owner-auth-dialog.auth-gate #owner-auth-close{display:none}
 #owner-auth-toggle{grid-column:1/-1;justify-self:center;margin:1px 0 4px;font-size:12px}
+
+
+/* Offline-first PWA status and sync controls. */
+.offline-banner{position:relative;z-index:4;display:flex;align-items:center;gap:9px;min-height:38px;padding:7px 7.2%;border-bottom:1px solid #dce5f2;background:#edf3fc;color:#3b557f;font-size:10px;line-height:1.35}
+.offline-indicator{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#2a9d75;box-shadow:0 0 0 3px #2a9d7518}
+.offline-banner.is-offline{background:#fff6e8;border-color:#f0dfc0;color:#77541e}
+.offline-banner.is-offline .offline-indicator{background:#d68b24;box-shadow:0 0 0 3px #d68b2418}
+.offline-banner.is-pending .offline-indicator{background:#d68b24;box-shadow:0 0 0 3px #d68b2418}
+.offline-sync-button{margin-left:auto;min-height:27px;padding:0 11px;border:1px solid #c8d6eb;border-radius:999px;background:#fff;color:#294577;font-size:9px;font-weight:700;cursor:pointer}
+.offline-sync-button:disabled{opacity:.45;cursor:not-allowed}
+:root[data-theme="dark"] .offline-banner{background:#202d42;border-color:#34445e;color:#c6d7f1}
+:root[data-theme="dark"] .offline-banner.is-offline{background:#392f22;border-color:#5d4b2e;color:#f2d6a5}
+:root[data-theme="dark"] .offline-sync-button{background:#263650;border-color:#465a79;color:#e8f0ff}
+@media(max-width:760px){.offline-banner{padding-inline:5%;font-size:9px}}
