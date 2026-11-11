@@ -1,4 +1,4 @@
-const CACHE_NAME = 'findit-shell-v11';
+const CACHE_NAME = 'findit-shell-v12';
 const DB_NAME = 'findit-offline-v1';
 const DB_VERSION = 1;
 const OUTBOX = 'outbox';
@@ -17,6 +17,8 @@ const APP_SHELL_PATHS = [
   './pwa.js?v=3',
   './manifest.webmanifest',
   './assets/findit-app-icon.svg',
+  './assets/findit-app-icon-192.png',
+  './assets/findit-app-icon-512.png',
   './vendor/qrcodejs/qrcode.min.js',
   './assets/items/earbuds.jpg',
   './assets/items/green-scarf.jpg',
