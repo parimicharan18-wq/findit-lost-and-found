@@ -177,7 +177,7 @@
   async function requestBackgroundSync() {
     try {
       if (!('serviceWorker' in navigator)) return false;
-      const scope = new URL('./', document.baseURI).pathname;
+      const scope = new URL('./', document.baseURI).href;
       const registration = await navigator.serviceWorker.getRegistration(scope);
       if (registration?.sync && typeof registration.sync.register === 'function') {
         await registration.sync.register('findit-report-sync');
