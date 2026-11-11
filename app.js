@@ -370,7 +370,7 @@
       syncError:record.photoError ? 'The report synced, but its photo could not be uploaded.' : '',
       photoPath:record.photoPath || localItem.photoPath || ''
     };
-    if (updated.photoPath) updated.photoData = '';
+    // Keep the local photo copy so this report remains viewable offline.
     const nextItems = localItems.map(item => item.id === updated.id ? updated : item);
     if (!saveItems(nextItems)) return;
     items = items.map(item => item.id === updated.id ? updated : item);
