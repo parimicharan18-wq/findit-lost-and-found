@@ -163,6 +163,7 @@
 
   window.FindItShared = Object.freeze({
     enabled, listReports, getReport, createReport, sendMessage, listMessages, deleteReport,
+    syncConfig:() => enabled ? {baseUrl,publishableKey} : null,
     publicAssetUrl:path => path ? `${baseUrl}/storage/v1/object/public/findit-item-photos/${String(path).split('/').map(encodeURIComponent).join('/')}` : ''
   });
 })();
