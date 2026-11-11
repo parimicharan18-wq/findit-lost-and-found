@@ -206,13 +206,22 @@ self.addEventListener('activate', event => {
   );
 });
 
+async function notifyOpenAppOrSyncInBackground() {
+  const clients = await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  if (clients.length) {
+    clients.forEach(client => client.postMessage({type:'FINDIT_OFFLINE_SYNC_NEEDED'}));
+    return;
+  }
+  await processOfflineQueue();
+}
+
 self.addEventListener('sync', event => {
-  if (event.tag === 'findit-report-sync') event.waitUntil(processOfflineQueue());
+  if (event.tag === 'findit-report-sync') event.waitUntil(notifyOpenAppOrSyncInBackground());
 });
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'FINDIT_SYNC_NOW') {
-    event.waitUntil?.(processOfflineQueue());
+    event.waitUntil?.(notifyOpenAppOrSyncInBackground());
   }
 });
 
