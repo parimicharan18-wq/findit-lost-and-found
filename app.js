@@ -48,6 +48,8 @@
       email:cleanText(item.email, 100), emoji:cleanText(item.emoji, 8) || '📦',
       demo:item.demo === true, sharedLink:item.sharedLink === true, photoData,
       remote:item.remote === true, ownerToken:/^[a-f0-9]{64}$/i.test(item.ownerToken || '') ? item.ownerToken : '',
+      syncStatus:['pending','synced'].includes(item.syncStatus) ? item.syncStatus : '',
+      syncError:cleanText(item.syncError, 160),
       photoPath:typeof item.photoPath === 'string' && /^[a-z0-9-]{8,80}\/[a-z0-9-]{8,80}\.(?:jpg|png|webp)$/i.test(item.photoPath) ? item.photoPath : ''
     };
   }
@@ -305,6 +307,7 @@
     refreshButton.disabled = true;
     try {
       remoteItems = await sharedBackend.listReports();
+      if (window.FindItOffline) await window.FindItOffline.cacheReports(remoteItems).catch(() => {});
       mergeRemoteItems();
       document.querySelector('#inbox-count').textContent = String(inboxMessages.length);
       if (!quiet) showToast('Community reports are up to date.');
@@ -325,6 +328,108 @@
     } finally {
       refreshButton.disabled = false;
     }
+  }
+
+  async function updateOfflineStatus() {
+    const banner = document.querySelector('#offline-banner');
+    const label = document.querySelector('#offline-status-text');
+    const button = document.querySelector('#sync-now');
+    if (!banner || !label || !button) return;
+    let queue = [];
+    try { queue = window.FindItOffline ? await window.FindItOffline.getQueue() : []; } catch {}
+    const queued = queue.filter(record => record.state !== 'synced').length;
+    const localPending = sharedBackend.enabled
+      ? readItems().filter(item => !item.demo && !item.remote && item.ownerToken).length
+      : 0;
+    const pending = Math.max(queued, localPending);
+    banner.classList.toggle('is-offline', !navigator.onLine);
+    banner.classList.toggle('is-pending', pending > 0);
+    if (!navigator.onLine) {
+      label.textContent = pending
+        ? `Offline mode · ${pending} report${pending === 1 ? '' : 's'} waiting to sync`
+        : 'Offline mode · your saved reports are available on this device';
+    } else if (pending) {
+      label.textContent = `Online · ${pending} report${pending === 1 ? '' : 's'} waiting to sync`;
+    } else {
+      label.textContent = 'Online · your saved reports are up to date';
+    }
+    button.disabled = !navigator.onLine || pending === 0 || !sharedBackend.enabled;
+  }
+
+  async function applySyncedReport(record) {
+    const localItems = readItems();
+    const localItem = localItems.find(item => item.id === record.id);
+    if (!localItem) {
+      if (window.FindItOffline) await window.FindItOffline.removeQueuedReport(record.id).catch(() => {});
+      return;
+    }
+    const updated = {
+      ...localItem,
+      remote:true,
+      syncStatus:'synced',
+      syncError:record.photoError ? 'The report synced, but its photo could not be uploaded.' : '',
+      photoPath:record.photoPath || localItem.photoPath || ''
+    };
+    if (updated.photoPath) updated.photoData = '';
+    const nextItems = localItems.map(item => item.id === updated.id ? updated : item);
+    if (!saveItems(nextItems)) return;
+    items = items.map(item => item.id === updated.id ? updated : item);
+    remoteItems = [
+      {...updated,email:'',photoData:'',ownerToken:'',remote:true},
+      ...remoteItems.filter(item => item.id !== updated.id)
+    ];
+    if (window.FindItOffline) await window.FindItOffline.removeQueuedReport(record.id).catch(() => {});
+    mergeRemoteItems();
+  }
+
+  async function syncPendingReports({quiet = true} = {}) {
+    if (!sharedBackend.enabled || !window.FindItOffline) {
+      await updateOfflineStatus();
+      return;
+    }
+    if (!navigator.onLine) {
+      await updateOfflineStatus();
+      return;
+    }
+
+    try {
+      const config = sharedBackend.syncConfig();
+      const existing = await window.FindItOffline.getQueue();
+      const queuedIds = new Set(existing.map(record => record.id));
+      for (const item of readItems().filter(entry => !entry.demo && !entry.remote && entry.ownerToken)) {
+        if (!queuedIds.has(item.id)) {
+          await window.FindItOffline.queueReport(item, config).catch(() => {});
+        }
+      }
+
+      const records = await window.FindItOffline.getQueue();
+      for (const record of records) {
+        if (record.state === 'synced') {
+          await applySyncedReport(record);
+          continue;
+        }
+        if (!navigator.onLine) break;
+        const claimed = await window.FindItOffline.claimReport(record.id);
+        if (!claimed) continue;
+        try {
+          const result = await sharedBackend.createReport(claimed.report, claimed.ownerToken);
+          await window.FindItOffline.markSynced(record.id, {
+            photoPath:result.photoPath || '',
+            photoError:Boolean(result.photoError)
+          });
+          const synced = (await window.FindItOffline.getQueue()).find(entry => entry.id === record.id);
+          if (synced) await applySyncedReport(synced);
+          if (!quiet) showToast('A saved report has synced to the FindIt community board.');
+        } catch (error) {
+          await window.FindItOffline.markPending(record.id, error?.message || 'Sync failed.').catch(() => {});
+          if (!quiet) showToast('A report is saved on this device and will retry when the connection is stable.');
+          break;
+        }
+      }
+    } catch {
+      if (!quiet) showToast('Offline sync is temporarily unavailable. Your local report is still saved.');
+    }
+    await updateOfflineStatus();
   }
 
   function renderInbox(messages) {
@@ -374,7 +479,7 @@
     grid.innerHTML = shown.map(item => `
       <article class="item-card" data-id="${escapeHTML(item.id)}">
         <button class="item-open" type="button" data-item-id="${escapeHTML(item.id)}" aria-label="View ${escapeHTML(item.name)}">
-        <div class="item-art art-${categoryClass(item.category)}${photoForItem(item) ? ' has-photo' : ''}">${photoForItem(item) ? `<img class="item-photo" src="${escapeHTML(photoForItem(item).src)}" alt="${escapeHTML(photoForItem(item).alt)}" data-fallback-emoji="${escapeHTML(item.emoji || '📦')}" loading="lazy" decoding="async">${photoForItem(item).example ? '<span class="image-note">EXAMPLE PHOTO</span>' : '<span class="image-note report-photo-note">REPORT PHOTO</span>'}` : `<span class="item-emoji" aria-hidden="true">${escapeHTML(item.emoji || '📦')}</span>`}<span class="found-pill">${item.type === 'Lost' ? 'LOOKING FOR' : 'FOUND'}${item.demo ? ' · SAMPLE' : ''}</span>${item.type === 'Found' ? '<span class="qr-chip" aria-hidden="true">▦</span>' : ''}</div>
+        <div class="item-art art-${categoryClass(item.category)}${photoForItem(item) ? ' has-photo' : ''}">${photoForItem(item) ? `<img class="item-photo" src="${escapeHTML(photoForItem(item).src)}" alt="${escapeHTML(photoForItem(item).alt)}" data-fallback-emoji="${escapeHTML(item.emoji || '📦')}" loading="lazy" decoding="async">${photoForItem(item).example ? '<span class="image-note">EXAMPLE PHOTO</span>' : '<span class="image-note report-photo-note">REPORT PHOTO</span>'}` : `<span class="item-emoji" aria-hidden="true">${escapeHTML(item.emoji || '📦')}</span>`}<span class="found-pill">${item.type === 'Lost' ? 'LOOKING FOR' : 'FOUND'}${item.demo ? ' · SAMPLE' : item.syncStatus === 'pending' ? ' · SYNC PENDING' : ''}</span>${item.type === 'Found' ? '<span class="qr-chip" aria-hidden="true">▦</span>' : ''}</div>
           <div class="item-body"><div class="item-title-row"><h3 class="item-title">${escapeHTML(item.name)}</h3><span class="item-category">${escapeHTML(item.category)}</span></div><div class="item-meta"><span>⌖ ${escapeHTML(item.location)}</span><span>${escapeHTML(formatDate(item.date))}</span></div><div class="item-footer"><strong>${item.color ? escapeHTML(item.color) : 'Community report'}</strong><span class="scan-hint">${item.type === 'Found' ? '▦ QR details' : '⌕ View report'}</span></div></div>
         </button>
         <button class="save-item${savedIds.includes(item.id) ? ' is-saved' : ''}" type="button" data-save-id="${escapeHTML(item.id)}" aria-label="${savedIds.includes(item.id) ? 'Remove' : 'Save'} ${escapeHTML(item.name)}${savedIds.includes(item.id) ? ' from' : ' for'} saved items" aria-pressed="${savedIds.includes(item.id)}" title="${savedIds.includes(item.id) ? 'Remove saved item' : 'Save for later'}"><span aria-hidden="true">${savedIds.includes(item.id) ? '♥' : '♡'}</span></button>
@@ -464,6 +569,7 @@
         ? 'This link contains public item details only. Open the community listing to send a private message.'
         : item.remote
           ? item.ownerToken ? 'Your email stays in this browser. Messages from other visitors arrive in My inbox.' : 'Reporter email stays private. Send a message; the report owner can reply from My inbox.'
+          : item.syncStatus === 'pending' ? 'Saved on this device. FindIt will sync this report when your internet connection returns.'
           : 'Copy link shares public report details only. Contact details and photos stay in this browser.';
     const canSendPrivateMessage = sharedBackend.enabled && item.remote && !item.ownerToken && !item.sharedLink;
     const canUseLocalMail = !item.remote && !item.demo && !item.sharedLink && Boolean(item.email);
@@ -721,7 +827,10 @@
     const form = event.currentTarget;
     const submitButton = form.querySelector('[type="submit"]');
     const ownerToken = sharedBackend.enabled ? Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2,'0')).join('') : '';
-    if (ownerToken) item.ownerToken = ownerToken;
+    if (ownerToken) {
+      item.ownerToken = ownerToken;
+      item.syncStatus = 'pending';
+    }
     submitButton.disabled = true;
     const nextItems = [item, ...items];
     const saved = saveItems(nextItems);
@@ -733,44 +842,29 @@
     items = nextItems;
     let detailMessage = 'Report saved on this device.';
     if (sharedBackend.enabled) {
-      document.querySelector('#report-status').textContent = 'Posting your report to the community board…';
       try {
-        const result = await sharedBackend.createReport(item, ownerToken);
-        item.remote = true;
-        item.photoPath = result.photoPath || '';
-        if (item.photoPath) item.photoData = '';
-        remoteItems = [{...item,email:'',photoData:'',ownerToken:'',remote:true}, ...remoteItems.filter(entry => entry.id !== item.id)];
-        detailMessage = result.photoError
-          ? 'Your report is shared, but its photo could not be uploaded. The report will show its item icon.'
-          : 'Your report is shared. Your email stays private; replies arrive in My inbox in this browser.';
-        saveItems(items);
+        await window.FindItOffline?.queueReport(item, sharedBackend.syncConfig());
       } catch {
-        // The database may have committed before a connection failed. Retry the
-        // same ID and recovery token; the create RPC is safely idempotent.
-        try {
-          const result = await sharedBackend.createReport(item, ownerToken);
-          item.remote = true;
-          item.photoPath = result.photoPath || '';
-          if (item.photoPath) item.photoData = '';
-          remoteItems = [{...item,email:'',photoData:'',ownerToken:'',remote:true}, ...remoteItems.filter(entry => entry.id !== item.id)];
-          detailMessage = result.photoError
-            ? 'Your report is shared, but its photo could not be uploaded. The report will show its item icon.'
-            : 'Your report is shared. Your email stays private; replies arrive in My inbox in this browser.';
-          saveItems(items);
-        } catch {
-          item.ownerToken = '';
-          item.remote = false;
-          saveItems(items);
-          detailMessage = 'The community board could not be reached. Your report was saved only on this device.';
+        // The report itself is already stored locally. The app will rebuild the
+        // outbox from the local recovery key the next time it is opened online.
+      }
+      if (navigator.onLine) {
+        document.querySelector('#report-status').textContent = 'Saved on this device. Syncing to the community board…';
+        await syncPendingReports({quiet:true});
+        const savedItem = readItems().find(entry => entry.id === item.id);
+        if (savedItem?.remote) {
+          detailMessage = savedItem.syncError || 'Your report is shared. Your email stays private; replies arrive in My inbox in this browser.';
+        } else {
+          detailMessage = 'Your report is saved on this device and queued for automatic sync. It will retry when the connection is stable.';
         }
+      } else {
+        detailMessage = 'Saved offline on this device. FindIt will automatically sync this report when your internet connection returns.';
       }
     }
     submitButton.disabled = false;
     mergeRemoteItems();
     form.reset(); selectedPhotoData = ''; photoPreview.innerHTML = ''; photoPreview.classList.add('hidden'); updateReportCopy(); closeDialog(reportDialog);
-    document.querySelector('#report-status').textContent = sharedBackend.enabled
-      ? 'Your email stays in this browser. Replies to shared reports arrive in My inbox.'
-      : 'Local demo: the report and email are stored in this browser only. No one else can see them; no message is sent automatically.';
+    document.querySelector('#report-status').textContent = detailMessage;
     setTimeout(() => {
       openDetail(item.id);
       document.querySelector('#detail-status').textContent = detailMessage;
@@ -887,9 +981,37 @@
     else if (id && sharedBackend.enabled) await resolveAndOpenReport(id);
     else if (/^#(?:item=|share=)/.test(window.location.hash)) showToast('This report link is invalid or incomplete.');
   });
-  window.addEventListener('focus', refreshInboxCount);
+  window.addEventListener('focus', () => {
+    refreshInboxCount();
+    syncPendingReports({quiet:true});
+  });
+  window.addEventListener('online', () => {
+    updateOfflineStatus();
+    syncPendingReports({quiet:true}).then(() => refreshSharedBoard({quiet:true}));
+  });
+  window.addEventListener('offline', updateOfflineStatus);
+  document.querySelector('#sync-now').addEventListener('click', async () => {
+    document.querySelector('#sync-now').disabled = true;
+    await syncPendingReports({quiet:false});
+    await refreshSharedBoard({quiet:true});
+  });
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'FINDIT_OFFLINE_SYNC_FINISHED') {
+      syncPendingReports({quiet:true}).then(() => refreshSharedBoard({quiet:true}));
+    }
+  });
   updateSharedLabels();
   render();
+  updateOfflineStatus();
+  if (window.FindItOffline) {
+    window.FindItOffline.getCachedReports().then(cached => {
+      if (!remoteItems.length && cached.length) {
+        remoteItems = cached;
+        mergeRemoteItems();
+      }
+    }).catch(() => {});
+  }
+  syncPendingReports({quiet:true});
   const initialItem = getHashShareItem() || getHashItemId();
   const initialTag = window.location.hash.match(/^#tag=(.+)$/);
   if (initialTag) { let tag = initialTag[1]; try { tag = decodeURIComponent(tag); } catch {} openFinderTag(tag); }
