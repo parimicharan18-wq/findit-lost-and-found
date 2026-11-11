@@ -412,7 +412,17 @@
         const claimed = await window.FindItOffline.claimReport(record.id);
         if (!claimed) continue;
         try {
-          const result = await sharedBackend.createReport(claimed.report, claimed.ownerToken);
+          let result = null;
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            try {
+              result = await sharedBackend.createReport(claimed.report, claimed.ownerToken);
+              break;
+            } catch (error) {
+              if (attempt === 0 && (!error.status || error.status >= 500)) continue;
+              throw error;
+            }
+          }
+          if (!result) throw new Error('The report could not be confirmed by the community server.');
           await window.FindItOffline.markSynced(record.id, {
             photoPath:result.photoPath || '',
             photoError:Boolean(result.photoError)
@@ -840,7 +850,7 @@
       return;
     }
     items = nextItems;
-    let detailMessage = 'Report saved on this device.';
+    let detailMessage = !navigator.onLine ? 'Saved offline on this device. This local demo keeps reports in this browser only.' : 'Report saved on this device.';
     if (sharedBackend.enabled) {
       try {
         await window.FindItOffline?.queueReport(item, sharedBackend.syncConfig());
