@@ -907,7 +907,7 @@
     button.disabled = true;
     document.querySelector('#message-status').textContent = 'Sending your private message…';
     try {
-      const intent=String(data.get('intent')||'').trim(), location=String(data.get('location')||'').trim(), handoff=String(data.get('handoff')||'').trim(), note=String(data.get('message')||'').trim();
+      const intent=String(data.get('intent')||'I have useful information').trim(), location=String(data.get('location')||'To be arranged').trim(), handoff=String(data.get('handoff')||'').trim(), note=String(data.get('message')||'').trim();
       const message=[`How I can help: ${intent}`,`Where or when: ${location}`,handoff?`Preferred safe handoff: ${handoff}`:'',note?`Additional message: ${note}`:''].filter(Boolean).join('\n');
       await sharedBackend.sendMessage(report.id,String(data.get('email') || '').trim(),message);
       closeDialog(messageDialog);
