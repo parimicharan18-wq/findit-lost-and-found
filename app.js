@@ -894,7 +894,7 @@
     }
     if (item.ownerToken) { showToast('You cannot message your own report. Check My inbox for replies.'); return; }
     const subject = encodeURIComponent(`FindIt ${item.type === 'Found' ? 'recovery' : 'lost item'} request: ${item.name}`);
-    const body = encodeURIComponent(item.type === 'Found' ? `Hi! I think I can identify your found item, “${item.name}”. Could we arrange a safe handoff?` : `Hi! I saw your lost item report for “${item.name}”. I may have information that can help.`);
+    const body = encodeURIComponent(item.type === 'Found' ? `Hi! I think I can identify your found item, “${item.name}”.\n\nHow can I help?\nWhere or when can we connect?\nWhat safe public handoff place do you prefer?\n\n${item.description || ''}` : `Hi! I saw your lost item report for “${item.name}”. I may have information that can help.\n\nWhere or when did you see it?\nWhat safe public handoff place do you prefer?\n\n${item.description || ''}`);
     window.location.href = `mailto:${encodeURIComponent(item.email)}?subject=${subject}&body=${body}`;
   });
   document.querySelector('#message-form').addEventListener('submit', async event => {
@@ -907,7 +907,9 @@
     button.disabled = true;
     document.querySelector('#message-status').textContent = 'Sending your private message…';
     try {
-      await sharedBackend.sendMessage(report.id,String(data.get('email') || '').trim(),String(data.get('message') || '').trim());
+      const intent=String(data.get('intent')||'').trim(), location=String(data.get('location')||'').trim(), handoff=String(data.get('handoff')||'').trim(), note=String(data.get('message')||'').trim();
+      const message=[`How I can help: ${intent}`,`Where or when: ${location}`,handoff?`Preferred safe handoff: ${handoff}`:'',note?`Additional message: ${note}`:''].filter(Boolean).join('\n');
+      await sharedBackend.sendMessage(report.id,String(data.get('email') || '').trim(),message);
       closeDialog(messageDialog);
       document.querySelector('#detail-status').textContent = 'Your message was sent to the report owner’s private inbox. They can reply to the email you provided.';
       form.reset();
