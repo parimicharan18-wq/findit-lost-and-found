@@ -913,6 +913,8 @@
       closeDialog(messageDialog);
       document.querySelector('#detail-status').textContent = 'Your message was sent to the report owner’s private inbox. They can reply to the email you provided.';
       form.reset();
+      await refreshInboxCount();
+      renderOwnerDashboard();
     } catch {
       document.querySelector('#message-status').textContent = 'Message could not be sent. Check your connection, then try again later.';
     } finally { button.disabled = false; }
