@@ -67,7 +67,7 @@ Deno.serve(async (request) => {
     const { data: profile } = owner ? await backend.from('findit_owner_profiles').select('full_name,mobile').eq('user_id',owner.owner_id).single() : { data:null };
     const { data: authUser } = owner ? await backend.auth.admin.getUserById(owner.owner_id) : { data:null };
 
-    let emailStatus: 'sent' | 'failed' | 'skipped' = 'skipped';
+    let emailStatus: 'sent' | 'failed' = 'failed';
     const apiKey = Deno.env.get('RESEND_API_KEY');
     if (apiKey && authUser?.user?.email) {
       try {
