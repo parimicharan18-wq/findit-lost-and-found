@@ -38,3 +38,26 @@ The frontend uses the public publishable/anon key. Supabase documents that brows
 5. To remove the report, open it in browser A and choose **Delete this shared report**.
 
 If the config is blank, the app remains in local-demo mode and does not call Supabase.
+
+
+## Owner notifications (email, SMS, and automated voice)
+
+When a finder submits a valid QR report, FindIt looks up the item owner's Supabase Auth account and sends the email to that account's login email. It uses the mobile number saved in the owner's profile for SMS and an automated voice call. The finder does not choose or supply the owner's destination address/number.
+
+Apply these migrations after the owner-account migration, in order:
+
+- `20261113000000_add_owner_sms_status.sql`
+- `20261113010000_add_owner_call_status.sql`
+
+Set these secrets under Supabase Dashboard → Edge Functions → Secrets (never in GitHub or browser code):
+
+- `RESEND_API_KEY`
+- `FINDIT_FROM_EMAIL` (a verified Resend sender)
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_MESSAGING_SERVICE_SID` (SMS) or `TWILIO_FROM_NUMBER` (SMS)
+- `TWILIO_FROM_NUMBER` must be a Twilio voice-capable number for automated calls.
+
+The SMS sender can use a Messaging Service SID; voice calls require a Twilio phone number. The function accepts Indian 10-digit mobile numbers and converts them to +91; international numbers must be stored in E.164 format. The owner dashboard shows email, SMS, and call request statuses independently. A call marked `sent` means Twilio accepted the call request, not that the owner answered.
+
+Before enabling production notifications, verify your Twilio account has permission to send SMS and place calls to the owner's destination country. India has telecom sender/template and regulatory requirements; confirm the current Twilio India guidance and required DLT registration before production traffic. Twilio may reject calls or SMS if account, sender, balance, or destination permissions are not configured. Send test notifications only to numbers whose owners have agreed to receive them.
