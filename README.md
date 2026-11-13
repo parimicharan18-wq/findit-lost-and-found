@@ -80,9 +80,12 @@ The repository has no project-level licence. No licence has been added, so the s
 
 The owner portal upgrade adds Supabase Auth forms, owner-scoped item/report tables, hashed QR tokens, anonymous finder submissions, and a Resend-backed notification function. To activate it on the hosted Supabase project:
 
-1. Apply `supabase/migrations/20261106000000_owner_accounts_and_qr_reports.sql` in the Supabase SQL editor.
+1. Apply `supabase/migrations/20261106000000_owner_accounts_and_qr_reports.sql` and then `supabase/migrations/20261113000000_add_owner_sms_status.sql` in the correct Supabase project's SQL editor.
 2. Deploy `supabase/functions/submit-finder-report` with the Supabase CLI.
-3. Set the Edge Function secrets `RESEND_API_KEY` and `FINDIT_FROM_EMAIL` to a verified sender address. The function uses Supabase's server-side service-role environment variable; never add these values to `shared-config.js`.
+3. Set the Edge Function secrets `RESEND_API_KEY` and `FINDIT_FROM_EMAIL` to a verified Resend sender address for email.
+4. For SMS, set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and either `TWILIO_MESSAGING_SERVICE_SID` (recommended) or `TWILIO_FROM_NUMBER` in Supabase Edge Function secrets. Never put provider credentials in browser code or GitHub.
+5. Owner registration must save a reachable mobile number in the owner's profile. Indian 10-digit mobile numbers are converted to +91; international numbers must be entered in E.164 format (for example, +14155552671).
+6. Submit a test finder report using a QR tag and confirm the email and SMS arrive. SMS delivery depends on an active Twilio account, an eligible sender, destination-country permissions, and sufficient account balance.
 
 To enable Google sign-in, enable Google under Supabase Authentication → Sign In / Providers and add the Supabase callback URL shown there to the Google OAuth client. Add the FindIt Pages URL to the allowed redirect URLs. To enable phone sign-in, configure an SMS provider under Supabase Authentication → Sign In / Providers → Phone, enable phone OTP, and set the SMS rate limits. These provider settings are controlled by the Supabase project owner; the website only starts the secure OAuth or OTP flow.
 
