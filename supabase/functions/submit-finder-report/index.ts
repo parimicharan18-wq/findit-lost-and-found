@@ -3,10 +3,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 
 function normalizePhone(value: string): string | null {
-  const raw = value.trim().replace(/[\\s().-]/g, '');
-  if (/^\\+[1-9]\\d{7,14}$/.test(raw)) return raw;
-  if (/^[6-9]\\d{9}$/.test(raw)) return `+91${raw}`;
-  if (/^91[6-9]\\d{9}$/.test(raw)) return `+${raw}`;
+  const raw = value.trim().replace(/[\s().-]/g, '');
+  if (/^\+[1-9]\d{7,14}$/.test(raw)) return raw;
+  if (/^[6-9]\d{9}$/.test(raw)) return `+91${raw}`;
+  if (/^91[6-9]\d{9}$/.test(raw)) return `+${raw}`;
   return null;
 }
 
@@ -86,7 +86,7 @@ Deno.serve(async (request) => {
     const body = await request.json();
     const token = String(body.token || '');
     const finder = { name:String(body.name||'').trim(), email:String(body.email||'').trim(), mobile:String(body.mobile||'').trim(), location:String(body.location||'').trim(), message:String(body.message||'').trim() };
-    if (!/^[a-f0-9]{64}$/.test(token) || finder.name.length < 1 || finder.name.length > 100 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(finder.email) || finder.mobile.length < 7 || finder.mobile.length > 25 || finder.location.length < 1 || finder.location.length > 160 || finder.message.length < 1 || finder.message.length > 2000) return Response.json({ error:'Please check the finder form fields.' }, { status:400, headers:cors });
+    if (!/^[a-f0-9]{64}$/.test(token) || finder.name.length < 1 || finder.name.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(finder.email) || finder.mobile.length < 7 || finder.mobile.length > 25 || finder.location.length < 1 || finder.location.length > 160 || finder.message.length < 1 || finder.message.length > 2000) return Response.json({ error:'Please check the finder form fields.' }, { status:400, headers:cors });
     const { data: found, error: lookupError } = await backend.rpc('findit_resolve_qr', { p_token:token });
     if (lookupError || !found?.length) return Response.json({ error:'This QR tag is invalid or inactive.' }, { status:404, headers:cors });
     const item = found[0];
@@ -109,7 +109,7 @@ Deno.serve(async (request) => {
             from:Deno.env.get('FINDIT_FROM_EMAIL') || 'FindIt <onboarding@resend.dev>',
             to:[authUser.user.email],
             subject:'FindIt Alert – Someone Found Your Lost Item!',
-            text:`Hello ${profile?.full_name || 'FindIt owner'},\\n\\nGood news! Someone reported finding your registered item.\\n\\nItem Name: ${item.name}\\nFinder Name: ${finder.name}\\nFinder Contact: ${finder.email} / ${finder.mobile}\\nFound Location: ${finder.location}\\nFinder Message: ${finder.message}\\n\\nLogin to your FindIt dashboard to view and manage this report.\\n\\nThank you for using FindIt – Lost & Found Platform.`
+            text:`Hello ${profile?.full_name || 'FindIt owner'},\n\nGood news! Someone reported finding your registered item.\n\nItem Name: ${item.name}\nFinder Name: ${finder.name}\nFinder Contact: ${finder.email} / ${finder.mobile}\nFound Location: ${finder.location}\nFinder Message: ${finder.message}\n\nLogin to your FindIt dashboard to view and manage this report.\n\nThank you for using FindIt – Lost & Found Platform.`
           })
         });
         emailStatus = response.ok ? 'sent' : 'failed';
